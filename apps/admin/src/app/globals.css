@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  /* ==============================
+   * Palette Nexora
+   * ============================== */
+  --color-midnight: #06182E;
+  --color-nexora-blue: #185FA5;
+  --color-sky: #378ADD;
+  --color-frost: #B5D4F4;
+  --color-white-ice: #F7FAFD;
+  --color-teal: #5DCAA5;
+
+  /* ==============================
+   * Couleurs sémantiques
+   * ============================== */
+  --color-background: #F7FAFD;
+  --color-foreground: #06182E;
+  --color-primary: #185FA5;
+  --color-primary-foreground: #FFFFFF;
+  --color-accent: #378ADD;
+  --color-accent-foreground: #FFFFFF;
+  --color-muted: #E8F0FA;
+  --color-muted-foreground: #3A5A7C;
+  --color-success: #5DCAA5;
+  --color-success-foreground: #06182E;
+  --color-destructive: #DC2626;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #D1E3F5;
+  --color-input: #D1E3F5;
+  --color-ring: #378ADD;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #06182E;
+
+  /* ==============================
+   * Sidebar (fond sombre Midnight)
+   * ============================== */
+  --color-sidebar: #06182E;
+  --color-sidebar-foreground: #F7FAFD;
+  --color-sidebar-accent: #185FA5;
+  --color-sidebar-accent-foreground: #FFFFFF;
+  --color-sidebar-border: #0D2B4A;
+  --color-sidebar-muted: #0D2B4A;
+  --color-sidebar-muted-foreground: #B5D4F4;
+
+  /* ==============================
+   * Typographie
+   * ============================== */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* ==============================
+   * Rayons de bordure
+   * ============================== */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}

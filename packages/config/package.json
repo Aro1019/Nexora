@@ -1,0 +1,9 @@
+{
+  "name": "@nexora/config",
+  "version": "0.1.0",
+  "private": true,
+  "files": ["tailwind", "typescript", "eslint"],
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,513 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TABLES BETTER AUTH
+// Les noms de champs sont imposés par le framework Better Auth.
+// Seuls les noms de tables (@@map) et les relations Nexora sont francisés.
+// ============================================
+
+/// Utilisateur de la plateforme Nexora
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations Better Auth
+  sessions    Session[]
+  accounts    Account[]
+
+  // Relations Nexora
+  adhesions   MembreSite[]
+  journaux    JournalAudit[]
+
+  @@map("utilisateur")
+}
+
+/// Session d'authentification active
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+/// Compte lié à un fournisseur (Google, GitHub ou identifiants)
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("compte")
+}
+
+/// Jeton de vérification (email, réinitialisation de mot de passe)
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// ============================================
+// SITES & MEMBRES
+// ============================================
+
+/// Site créé par un utilisateur (vitrine, blog, portfolio ou e-commerce)
+model Site {
+  id                  String     @id @default(cuid())
+  nom                 String
+  slug                String     @unique
+  description         String?
+  urlLogo             String?
+  urlFavicon          String?
+  typeSite            TypeSite   @default(VITRINE)
+  statut              StatutSite @default(BROUILLON)
+  domainePersonnalise String?    @unique
+
+  /// Titre pour le référencement (balise <title>)
+  titreMeta           String?
+  /// Description pour le référencement (balise <meta>)
+  descriptionMeta     String?
+
+  /// Langue principale du site
+  langueParDefaut     String     @default("fr")
+  /// Langues activées sur le site
+  langues             String[]   @default(["fr"])
+
+  // Relations
+  membres             MembreSite[]
+  pages               Page[]
+  medias              Media[]
+  navigations         Navigation[]
+  reglages            ReglagesSite?
+  categories          Categorie[]
+  etiquettes          Etiquette[]
+  blocsGlobaux        BlocGlobal[]
+  formulaires         Formulaire[]
+  journaux            JournalAudit[]
+
+  creeLe              DateTime   @default(now())
+  misAJourLe          DateTime   @updatedAt
+
+  @@map("site")
+}
+
+/// Types de site disponibles
+enum TypeSite {
+  VITRINE
+  BLOG
+  PORTFOLIO
+  ECOMMERCE
+}
+
+/// Statuts possibles d'un site
+enum StatutSite {
+  BROUILLON
+  PUBLIE
+  MAINTENANCE
+  ARCHIVE
+}
+
+/// Membre d'un site avec un rôle attribué
+model MembreSite {
+  id              String   @id @default(cuid())
+  idUtilisateur   String
+  idSite          String
+  role            RoleSite @default(EDITEUR)
+  rejointLe       DateTime @default(now())
+
+  utilisateur     User     @relation(fields: [idUtilisateur], references: [id], onDelete: Cascade)
+  site            Site     @relation(fields: [idSite], references: [id], onDelete: Cascade)
+
+  @@unique([idUtilisateur, idSite])
+  @@map("membre_site")
+}
+
+/// Rôles disponibles pour les membres d'un site
+enum RoleSite {
+  PROPRIETAIRE
+  ADMINISTRATEUR
+  EDITEUR
+  LECTEUR
+}
+
+/// Réglages visuels et techniques d'un site
+model ReglagesSite {
+  id                    String  @id @default(cuid())
+  idSite                String  @unique
+
+  /// Nom du thème actif
+  theme                 String  @default("defaut")
+  couleurPrincipale     String  @default("#06182E")
+  couleurAccent         String  @default("#185FA5")
+  policeEnTete          String  @default("Inter")
+  policeCorps           String  @default("Inter")
+  rayonBordure          String  @default("0.5rem")
+
+  /// Code HTML injecté dans <head>
+  codeEntete            String?
+  /// Code HTML injecté après <body>
+  codeDebutCorps        String?
+  /// Code HTML injecté avant </body>
+  codeFinCorps          String?
+
+  /// Identifiant Google Analytics
+  idSuiviGA             String?
+  /// Liens vers les réseaux sociaux { twitter: "", instagram: "" }
+  liensReseauxSociaux   Json?
+  /// Page 404 personnalisée
+  idPage404             String?
+
+  site                  Site    @relation(fields: [idSite], references: [id], onDelete: Cascade)
+
+  @@map("reglages_site")
+}
+
+// ============================================
+// PAGES & VERSIONNAGE
+// ============================================
+
+/// Page d'un site (contenu principal éditable par blocs)
+model Page {
+  id                  String     @id @default(cuid())
+  idSite              String
+  titre               String
+  slug                String
+  chemin              String
+  typePage            TypePage   @default(PAGE)
+  statut              StatutPage @default(BROUILLON)
+
+  /// Contenu brouillon — arbre de blocs JSON édité par l'utilisateur
+  contenu             Json       @default("[]")
+
+  /// Référence vers la version actuellement publiée
+  idVersionPubliee    String?    @unique
+  versionPubliee      VersionPage? @relation("VersionPubliee", fields: [idVersionPubliee], references: [id])
+
+  /// Historique de toutes les versions de cette page
+  versions            VersionPage[] @relation("VersionsDePage")
+
+  // SEO
+  titreMeta           String?
+  descriptionMeta     String?
+  urlImageOG          String?
+  nonIndexe           Boolean    @default(false)
+
+  // Champs spécifiques au blog
+  extrait             String?
+  imageMiseEnAvant    String?
+  publieLe            DateTime?
+  /// Date de publication programmée (traitée par un cron)
+  planifieLe          DateTime?
+
+  // Internationalisation (préparé pour v2)
+  langue              String     @default("fr")
+  groupeTraduction    String?
+
+  // Hiérarchie de pages
+  ordreAffichage      Int        @default(0)
+  idParent            String?
+  parent              Page?      @relation("HierarchiePage", fields: [idParent], references: [id], onDelete: SetNull)
+  enfants             Page[]     @relation("HierarchiePage")
+
+  // Relations
+  site                Site       @relation(fields: [idSite], references: [id], onDelete: Cascade)
+  etiquettesPage      PageEtiquette[]
+  categoriesPage      PageCategorie[]
+
+  creeLe              DateTime   @default(now())
+  misAJourLe          DateTime   @updatedAt
+
+  @@unique([idSite, slug, langue])
+  @@index([idSite, statut])
+  @@index([idSite, typePage])
+  @@index([planifieLe])
+  @@map("page")
+}
+
+/// Types de pages disponibles
+enum TypePage {
+  ACCUEIL
+  PAGE
+  ARTICLE
+  INDEX_BLOG
+}
+
+/// Statuts possibles d'une page
+enum StatutPage {
+  BROUILLON
+  PUBLIE
+  PLANIFIE
+  ARCHIVE
+}
+
+/// Version historique d'une page (snapshot du contenu à un instant T)
+model VersionPage {
+  id              String   @id @default(cuid())
+  idPage          String
+  version         Int
+  contenu         Json
+  titre           String
+
+  titreMeta       String?
+  descriptionMeta String?
+
+  /// Identifiant de l'utilisateur ayant créé cette version
+  creePar         String?
+  /// Note optionnelle décrivant les changements
+  note            String?
+  creeLe          DateTime @default(now())
+
+  page            Page     @relation("VersionsDePage", fields: [idPage], references: [id], onDelete: Cascade)
+  publiePour      Page?    @relation("VersionPubliee")
+
+  @@unique([idPage, version])
+  @@index([idPage])
+  @@map("version_page")
+}
+
+// ============================================
+// BLOCS GLOBAUX
+// ============================================
+
+/// Bloc de contenu réutilisable sur plusieurs pages d'un même site
+model BlocGlobal {
+  id          String @id @default(cuid())
+  idSite      String
+  nom         String
+  slug        String
+  contenu     Json   @default("[]")
+
+  site        Site   @relation(fields: [idSite], references: [id], onDelete: Cascade)
+
+  creeLe      DateTime @default(now())
+  misAJourLe  DateTime @updatedAt
+
+  @@unique([idSite, slug])
+  @@map("bloc_global")
+}
+
+// ============================================
+// CATÉGORIES & ÉTIQUETTES
+// ============================================
+
+/// Catégorie hiérarchique pour organiser les pages et articles
+model Categorie {
+  id              String    @id @default(cuid())
+  idSite          String
+  nom             String
+  slug            String
+  description     String?
+  couleur         String?
+  ordreAffichage  Int       @default(0)
+
+  idParent        String?
+  parent          Categorie?  @relation("HierarchieCategorie", fields: [idParent], references: [id], onDelete: SetNull)
+  enfants         Categorie[] @relation("HierarchieCategorie")
+
+  site            Site           @relation(fields: [idSite], references: [id], onDelete: Cascade)
+  pages           PageCategorie[]
+
+  creeLe          DateTime @default(now())
+
+  @@unique([idSite, slug])
+  @@map("categorie")
+}
+
+/// Étiquette plate pour décrire et filtrer les pages
+model Etiquette {
+  id      String  @id @default(cuid())
+  idSite  String
+  nom     String
+  slug    String
+  couleur String?
+
+  site    Site          @relation(fields: [idSite], references: [id], onDelete: Cascade)
+  pages   PageEtiquette[]
+
+  @@unique([idSite, slug])
+  @@map("etiquette")
+}
+
+/// Relation page ↔ catégorie (many-to-many)
+model PageCategorie {
+  idPage       String
+  idCategorie  String
+  page         Page      @relation(fields: [idPage], references: [id], onDelete: Cascade)
+  categorie    Categorie @relation(fields: [idCategorie], references: [id], onDelete: Cascade)
+
+  @@id([idPage, idCategorie])
+  @@map("page_categorie")
+}
+
+/// Relation page ↔ étiquette (many-to-many)
+model PageEtiquette {
+  idPage      String
+  idEtiquette String
+  page        Page      @relation(fields: [idPage], references: [id], onDelete: Cascade)
+  etiquette   Etiquette @relation(fields: [idEtiquette], references: [id], onDelete: Cascade)
+
+  @@id([idPage, idEtiquette])
+  @@map("page_etiquette")
+}
+
+// ============================================
+// MÉDIAS
+// ============================================
+
+/// Fichier média uploadé (image, vidéo, document)
+model Media {
+  id              String  @id @default(cuid())
+  idSite          String
+  nomFichier      String
+  url             String
+  typeMime        String
+  taille          Int
+  largeur         Int?
+  hauteur         Int?
+  texteAlternatif String?
+  legende         String?
+  dossier         String?
+
+  site            Site    @relation(fields: [idSite], references: [id], onDelete: Cascade)
+
+  creeLe          DateTime @default(now())
+
+  @@index([idSite])
+  @@index([idSite, dossier])
+  @@map("media")
+}
+
+// ============================================
+// NAVIGATION
+// ============================================
+
+/// Menu de navigation d'un site (en-tête, pied de page, barre latérale)
+model Navigation {
+  id          String                @id @default(cuid())
+  idSite      String
+  libelle     String
+  emplacement EmplacementNavigation @default(ENTETE)
+  /// Éléments du menu au format JSON — voir type ElementNavigation
+  elements    Json                  @default("[]")
+
+  site        Site @relation(fields: [idSite], references: [id], onDelete: Cascade)
+
+  @@unique([idSite, emplacement])
+  @@map("navigation")
+}
+
+/// Emplacements possibles pour un menu de navigation
+enum EmplacementNavigation {
+  ENTETE
+  PIED_DE_PAGE
+  BARRE_LATERALE
+}
+
+// ============================================
+// FORMULAIRES
+// ============================================
+
+/// Formulaire configurable (contact, newsletter, inscription)
+model Formulaire {
+  id                String @id @default(cuid())
+  idSite            String
+  nom               String
+  slug              String
+  /// Définition des champs au format JSON — voir type ChampFormulaire
+  champs            Json
+
+  libelleEnvoi      String @default("Envoyer")
+  messageSucces     String @default("Merci ! Votre message a bien été envoyé.")
+  emailNotification String?
+
+  site              Site                   @relation(fields: [idSite], references: [id], onDelete: Cascade)
+  soumissions       SoumissionFormulaire[]
+
+  creeLe            DateTime @default(now())
+  misAJourLe        DateTime @updatedAt
+
+  @@unique([idSite, slug])
+  @@map("formulaire")
+}
+
+/// Soumission d'un formulaire par un visiteur du site
+model SoumissionFormulaire {
+  id               String  @id @default(cuid())
+  idFormulaire     String
+  donnees          Json
+
+  adresseIP        String?
+  agentUtilisateur String?
+  estLu            Boolean @default(false)
+
+  formulaire       Formulaire @relation(fields: [idFormulaire], references: [id], onDelete: Cascade)
+
+  creeLe           DateTime @default(now())
+
+  @@index([idFormulaire])
+  @@index([idFormulaire, estLu])
+  @@map("soumission_formulaire")
+}
+
+// ============================================
+// JOURNAL D'AUDIT
+// ============================================
+
+/// Trace d'activité pour le suivi des modifications sur la plateforme
+model JournalAudit {
+  id              String  @id @default(cuid())
+  idSite          String?
+  idUtilisateur   String?
+  action          String
+  typeRessource   String
+  idRessource     String
+  metadonnees     Json?
+  adresseIP       String?
+
+  site            Site?   @relation(fields: [idSite], references: [id], onDelete: Cascade)
+  utilisateur     User?   @relation(fields: [idUtilisateur], references: [id], onDelete: SetNull)
+
+  creeLe          DateTime @default(now())
+
+  @@index([idSite])
+  @@index([idUtilisateur])
+  @@index([idSite, typeRessource])
+  @@index([creeLe])
+  @@map("journal_audit")
+}
