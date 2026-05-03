@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  /* Palette Nexora — peut être surchargée par les réglages d'un site */
+  --color-midnight: #06182E;
+  --color-nexora-blue: #185FA5;
+  --color-sky: #378ADD;
+  --color-frost: #B5D4F4;
+  --color-white-ice: #F7FAFD;
+  --color-teal: #5DCAA5;
+
+  --color-background: #FFFFFF;
+  --color-foreground: #06182E;
+  --color-primary: #185FA5;
+  --color-primary-foreground: #FFFFFF;
+  --color-accent: #378ADD;
+  --color-muted: #E8F0FA;
+  --color-muted-foreground: #3A5A7C;
+  --color-border: #D1E3F5;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  background: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Variables CSS pilotables par les réglages du site (surcharge à l'exécution) */
+:root {
+  --site-couleur-principale: #06182E;
+  --site-couleur-accent: #185FA5;
+  --site-rayon-bordure: 0.5rem;
+}

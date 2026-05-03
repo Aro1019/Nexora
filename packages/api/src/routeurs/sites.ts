@@ -31,6 +31,26 @@ const schemaModificationSite = z.object({
   description: z.string().max(500).optional(),
   typeSite: z.enum(["VITRINE", "BLOG", "PORTFOLIO", "ECOMMERCE"]).optional(),
   statut: z.enum(["BROUILLON", "PUBLIE", "MAINTENANCE", "ARCHIVE"]).optional(),
+  langues: z
+    .array(z.string().regex(/^[a-z]{2}(?:-[A-Z]{2})?$/))
+    .min(1)
+    .max(20)
+    .optional(),
+  langueParDefaut: z
+    .string()
+    .regex(/^[a-z]{2}(?:-[A-Z]{2})?$/)
+    .optional(),
+  domainePersonnalise: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(253)
+    .regex(
+      /^(?=.{1,253}$)(?!-)(?:[a-z0-9-]{1,63}(?<!-)\.)+[a-z]{2,}$/,
+      "Domaine invalide. Utilisez un nom de domaine sans http:// ni chemin (ex : monsite.com)."
+    )
+    .nullable()
+    .optional(),
 });
 
 export const routeurSites = creerRouteur({
@@ -213,6 +233,42 @@ export const routeurSites = creerRouteur({
         }
       }
 
+      /* Cohérence langues : la langue par défaut doit être dans la liste */
+      if (donnees.langues || donnees.langueParDefaut) {
+        const siteActuel = await ctx.db.site.findUnique({
+          where: { id },
+          select: { langues: true, langueParDefaut: true },
+        });
+        if (!siteActuel) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Site introuvable." });
+        }
+        const languesFinales = donnees.langues ?? siteActuel.langues;
+        const langueDef = donnees.langueParDefaut ?? siteActuel.langueParDefaut;
+        if (!languesFinales.includes(langueDef)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "La langue par défaut doit faire partie des langues activées.",
+          });
+        }
+      }
+
+      /* Vérifier l'unicité du domaine personnalisé si fourni */
+      if (donnees.domainePersonnalise) {
+        const domaineExistant = await ctx.db.site.findFirst({
+          where: {
+            domainePersonnalise: donnees.domainePersonnalise,
+            NOT: { id },
+          },
+          select: { id: true },
+        });
+        if (domaineExistant) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Ce domaine est déjà utilisé par un autre site.",
+          });
+        }
+      }
+
       const site = await ctx.db.site.update({
         where: { id },
         data: donnees,
@@ -282,4 +338,72 @@ export const routeurSites = creerRouteur({
 
     return { nombreSites, nombrePages, nombreMedias };
   }),
+
+  /**
+   * Vérifie la configuration DNS d'un domaine personnalisé.
+   * Recherche un CNAME pointant vers la cible attendue (CIBLE_DNS
+   * déclarée côté serveur), ou à défaut un enregistrement A.
+   */
+  verifierDomaine: procedureProtegee
+    .input(z.object({ idSite: z.string(), domaine: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const membre = await ctx.db.membreSite.findUnique({
+        where: {
+          idUtilisateur_idSite: {
+            idUtilisateur: ctx.utilisateur.id,
+            idSite: input.idSite,
+          },
+        },
+      });
+      if (
+        !membre ||
+        !(["PROPRIETAIRE", "ADMINISTRATEUR"] as const).includes(
+          membre.role as "PROPRIETAIRE" | "ADMINISTRATEUR"
+        )
+      ) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Droits insuffisants." });
+      }
+
+      const domaine = input.domaine.trim().toLowerCase();
+      const cibleAttendue = (process.env.CIBLE_DNS ?? "").trim().toLowerCase();
+
+      const dns = await import("node:dns/promises");
+
+      let cnames: string[] = [];
+      let ips: string[] = [];
+      try {
+        cnames = (await dns.resolveCname(domaine)).map((c) => c.toLowerCase());
+      } catch {
+        /* Pas de CNAME : on tentera A */
+      }
+      try {
+        ips = await dns.resolve4(domaine);
+      } catch {
+        /* Pas d'enregistrement A */
+      }
+
+      let valide = false;
+      let raison = "Aucun enregistrement DNS trouvé pour ce domaine.";
+
+      if (cnames.length > 0) {
+        if (!cibleAttendue) {
+          valide = true;
+          raison = `CNAME détecté vers ${cnames[0]}. (CIBLE_DNS non configurée côté serveur, validation manuelle.)`;
+        } else if (
+          cnames.some(
+            (c) => c === cibleAttendue || c === cibleAttendue + "."
+          )
+        ) {
+          valide = true;
+          raison = `CNAME correctement configuré vers ${cibleAttendue}.`;
+        } else {
+          raison = `CNAME pointe vers ${cnames[0]} au lieu de ${cibleAttendue}.`;
+        }
+      } else if (ips.length > 0) {
+        valide = true;
+        raison = `Enregistrement A détecté (${ips.join(", ")}). Pensez à vérifier qu'il pointe vers Nexora.`;
+      }
+
+      return { valide, raison, cnames, ips, cibleAttendue: cibleAttendue || null };
+    }),
 });

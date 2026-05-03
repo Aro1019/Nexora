@@ -15,6 +15,10 @@ import {
   ExternalLink,
   Loader2,
   Menu,
+  Inbox,
+  Tags,
+  BarChart3,
+  Webhook,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
@@ -39,6 +43,10 @@ const ONGLETS = [
   { libelle: "Pages", suffixe: "pages", icone: FileText },
   { libelle: "Médias", suffixe: "medias", icone: Image },
   { libelle: "Navigation", suffixe: "navigation", icone: Menu },
+  { libelle: "Taxonomies", suffixe: "taxonomies", icone: Tags },
+  { libelle: "Formulaires", suffixe: "formulaires", icone: Inbox },
+  { libelle: "Webhooks", suffixe: "webhooks", icone: Webhook },
+  { libelle: "Statistiques", suffixe: "statistiques", icone: BarChart3 },
   { libelle: "Membres", suffixe: "membres", icone: Users },
   { libelle: "Réglages", suffixe: "reglages", icone: Settings },
 ] as const;
@@ -111,17 +119,16 @@ export default function PageDetailSite() {
           </div>
         </div>
 
-        {site.statut === "PUBLIE" && (
-          <a
-            href={`https://${site.domainePersonnalise || site.slug + ".nexora.app"}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Voir le site
-          </a>
-        )}
+        {/* Aperçu / Voir le site — fonctionne même pour les brouillons (preview) */}
+        <a
+          href={`${process.env.NEXT_PUBLIC_URL_SITE ?? "http://localhost:3001"}/s/${site.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        >
+          <ExternalLink className="h-4 w-4" />
+          {site.statut === "PUBLIE" ? "Voir le site" : "Prévisualiser"}
+        </a>
       </div>
 
       {/* Statistiques rapides */}

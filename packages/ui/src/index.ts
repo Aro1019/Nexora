@@ -1,4 +1,9 @@
 export { cn } from "./lib/utils";
+export {
+  LANGUES_DISPONIBLES,
+  obtenirInfoLangue,
+  type InfoLangue,
+} from "./langues";
 
 /* Composants UI */
 export { Bouton, variantesBouton, type PropsBouton } from "./composants/bouton";

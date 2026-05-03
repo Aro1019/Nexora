@@ -15,12 +15,20 @@ import {
   Eye,
   Settings,
   Undo2,
+  Languages,
+  Copy,
+  Tags,
+  History,
 } from "lucide-react";
-import { cn } from "@nexora/ui";
+import { cn, obtenirInfoLangue } from "@nexora/ui";
 import { trpc } from "@/lib/trpc";
+import { EditeurBlocs } from "@/composants/editeur/editeur-blocs";
+import { PanneauApercu } from "@/composants/editeur/panneau-apercu";
+import { OngletHistorique } from "@/composants/editeur/onglet-historique";
+import type { ContenuPage } from "@/composants/editeur/types";
 
 /** Onglets de l'éditeur */
-type Onglet = "contenu" | "seo" | "reglages";
+type Onglet = "contenu" | "taxonomies" | "seo" | "reglages" | "historique";
 
 export default function PageEditionPage() {
   const params = useParams<{ slug: string; idPage: string }>();
@@ -33,9 +41,13 @@ export default function PageEditionPage() {
   const [descriptionMeta, setDescriptionMeta] = useState("");
   const [extrait, setExtrait] = useState("");
   const [nonIndexe, setNonIndexe] = useState(false);
+  const [contenu, setContenu] = useState<ContenuPage>([]);
+  const [idsCategories, setIdsCategories] = useState<string[]>([]);
+  const [idsEtiquettes, setIdsEtiquettes] = useState<string[]>([]);
   const [erreur, setErreur] = useState("");
   const [messageSucces, setMessageSucces] = useState("");
   const [modifie, setModifie] = useState(false);
+  const [menuLangueOuvert, setMenuLangueOuvert] = useState(false);
 
   /* Récupérer le site */
   const { data: site } = trpc.sites.obtenir.useQuery(
@@ -60,8 +72,25 @@ export default function PageEditionPage() {
       setDescriptionMeta(page.descriptionMeta ?? "");
       setExtrait(page.extrait ?? "");
       setNonIndexe(page.nonIndexe);
+      /* Charger le contenu de la page (tableau de blocs) */
+      const contenuCharge = Array.isArray(page.contenu)
+        ? (page.contenu as unknown as ContenuPage)
+        : [];
+      setContenu(contenuCharge);
+      setIdsCategories(page.categoriesPage.map((c) => c.categorie.id));
+      setIdsEtiquettes(page.etiquettesPage.map((e) => e.etiquette.id));
     }
   }, [page]);
+
+  /* Catégories et étiquettes disponibles sur le site */
+  const { data: categoriesDispo } = trpc.categories.lister.useQuery(
+    { idSite: site?.id ?? "" },
+    { enabled: !!site?.id }
+  );
+  const { data: etiquettesDispo } = trpc.etiquettes.lister.useQuery(
+    { idSite: site?.id ?? "" },
+    { enabled: !!site?.id }
+  );
 
   /* Mutation sauvegarder */
   const mutationModifier = trpc.pages.modifier.useMutation({
@@ -89,6 +118,18 @@ export default function PageEditionPage() {
     onError: (err) => setErreur(err.message),
   });
 
+  /* Mutation dupliquer dans une autre langue */
+  const mutationDupliquer = trpc.pages.dupliquerDansLangue.useMutation({
+    onSuccess: (nouvellePage) => {
+      utils.pages.lister.invalidate({ idSite: site?.id ?? "" });
+      setMenuLangueOuvert(false);
+      router.push(
+        `/tableau-de-bord/sites/${params.slug}/pages/${nouvellePage.id}`
+      );
+    },
+    onError: (err) => setErreur(err.message),
+  });
+
   /** Sauvegarder */
   function gererSauvegarde() {
     if (!site?.id || !page) return;
@@ -98,10 +139,13 @@ export default function PageEditionPage() {
       idSite: site.id,
       titre,
       slug: slugPage,
+      contenu,
       titreMeta: titreMeta || null,
       descriptionMeta: descriptionMeta || null,
       extrait: extrait || null,
       nonIndexe,
+      idsCategories,
+      idsEtiquettes,
     });
   }
 
@@ -116,10 +160,13 @@ export default function PageEditionPage() {
         idSite: site.id,
         titre,
         slug: slugPage,
+        contenu,
         titreMeta: titreMeta || null,
         descriptionMeta: descriptionMeta || null,
         extrait: extrait || null,
         nonIndexe,
+        idsCategories,
+        idsEtiquettes,
       },
       {
         onSuccess: () => {
@@ -181,6 +228,18 @@ export default function PageEditionPage() {
             </h1>
             <p className="text-xs text-muted-foreground">{page.chemin}</p>
           </div>
+          {/* Badge langue (uniquement si plusieurs langues activées) */}
+          {site && site.langues.length > 1 && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+              title={`Langue : ${obtenirInfoLangue(page.langue).nomNatif}`}
+            >
+              <span className="text-base leading-none">
+                {obtenirInfoLangue(page.langue).drapeau}
+              </span>
+              <span className="font-mono uppercase">{page.langue}</span>
+            </span>
+          )}
           {modifie && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
               <Undo2 className="h-3 w-3" />
@@ -195,6 +254,78 @@ export default function PageEditionPage() {
             <span className="text-sm text-emerald-600 font-medium animate-pulse">
               {messageSucces}
             </span>
+          )}
+
+          {/* Menu : dupliquer dans une autre langue */}
+          {site && site.langues.length > 1 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuLangueOuvert((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-md border border-input bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                title="Dupliquer dans une autre langue"
+              >
+                <Languages className="h-4 w-4" />
+                Traduire
+              </button>
+              {menuLangueOuvert && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setMenuLangueOuvert(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 z-20 w-64 rounded-lg border border-border bg-card shadow-xl py-1">
+                    <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Dupliquer dans
+                    </p>
+                    {site.langues
+                      .filter((l) => l !== page.langue)
+                      .map((l) => {
+                        const info = obtenirInfoLangue(l);
+                        return (
+                          <button
+                            key={l}
+                            type="button"
+                            onClick={() => {
+                              if (!site.id) return;
+                              mutationDupliquer.mutate({
+                                id: page.id,
+                                idSite: site.id,
+                                langueCible: l,
+                              });
+                            }}
+                            disabled={mutationDupliquer.isPending}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+                          >
+                            <span className="text-lg">{info.drapeau}</span>
+                            <span className="flex-1">{info.nomNatif}</span>
+                            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                        );
+                      })}
+                    {site.langues.filter((l) => l !== page.langue).length === 0 && (
+                      <p className="px-3 py-2 text-xs text-muted-foreground italic">
+                        Aucune autre langue activée.
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Aperçu + Partage */}
+          {site && (
+            <PanneauApercu
+              idPage={page.id}
+              idSite={site.id}
+              slugSite={site.slug}
+              contenu={contenu}
+              titre={titre}
+              urlBaseSite={
+                process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001"
+              }
+            />
           )}
 
           {/* Bouton sauvegarder */}
@@ -240,8 +371,10 @@ export default function PageEditionPage() {
         <nav className="flex gap-6 -mb-px">
           {([
             { id: "contenu" as const, libelle: "Contenu", icone: Eye },
+            { id: "taxonomies" as const, libelle: "Taxonomies", icone: Tags },
             { id: "seo" as const, libelle: "SEO", icone: Globe },
             { id: "reglages" as const, libelle: "Réglages", icone: Settings },
+            { id: "historique" as const, libelle: "Historique", icone: History },
           ]).map((onglet) => {
             const Icone = onglet.icone;
             return (
@@ -284,19 +417,18 @@ export default function PageEditionPage() {
             />
           </div>
 
-          {/* Zone de contenu (placeholder pour l'éditeur de blocs) */}
+          {/* Zone de contenu — éditeur de blocs */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Contenu
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Contenu de la page
             </label>
-            <div className="rounded-lg border-2 border-dashed border-border p-12 text-center bg-muted/20">
-              <p className="text-sm text-muted-foreground">
-                L&apos;éditeur de blocs sera disponible dans la prochaine phase.
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Vous pourrez glisser-déposer des blocs (texte, image, vidéo, formulaire…) pour construire votre page.
-              </p>
-            </div>
+            <EditeurBlocs
+              contenuInitial={contenu}
+              surChangement={(nouveau) => {
+                setContenu(nouveau);
+                marquerModifie();
+              }}
+            />
           </div>
 
           {/* Extrait (pour articles) */}
@@ -351,6 +483,113 @@ export default function PageEditionPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ──────── Onglet Taxonomies ──────── */}
+      {ongletActif === "taxonomies" && (
+        <div className="space-y-8 max-w-2xl">
+          {/* Catégories */}
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-1">Catégories</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Cliquez pour activer/désactiver. Créez de nouvelles catégories depuis la page Taxonomies du site.
+            </p>
+            {!categoriesDispo || categoriesDispo.length === 0 ? (
+              <div className="rounded-md border-2 border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Aucune catégorie sur ce site.{" "}
+                <Link
+                  href={`/tableau-de-bord/sites/${params.slug}/taxonomies`}
+                  className="text-primary hover:underline"
+                >
+                  En créer une
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {categoriesDispo.map((cat) => {
+                  const actif = idsCategories.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setIdsCategories(
+                          actif
+                            ? idsCategories.filter((id) => id !== cat.id)
+                            : [...idsCategories, cat.id]
+                        );
+                        marquerModifie();
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        actif
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-card text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: cat.couleur ?? "#94a3b8" }}
+                      />
+                      {cat.nom}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Étiquettes */}
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-1">Étiquettes</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Mots-clés pour décrire et filtrer cette page.
+            </p>
+            {!etiquettesDispo || etiquettesDispo.length === 0 ? (
+              <div className="rounded-md border-2 border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Aucune étiquette sur ce site.{" "}
+                <Link
+                  href={`/tableau-de-bord/sites/${params.slug}/taxonomies`}
+                  className="text-primary hover:underline"
+                >
+                  En créer une
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {etiquettesDispo.map((et) => {
+                  const actif = idsEtiquettes.includes(et.id);
+                  return (
+                    <button
+                      key={et.id}
+                      type="button"
+                      onClick={() => {
+                        setIdsEtiquettes(
+                          actif
+                            ? idsEtiquettes.filter((id) => id !== et.id)
+                            : [...idsEtiquettes, et.id]
+                        );
+                        marquerModifie();
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        actif
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-card text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: et.couleur ?? "#94a3b8" }}
+                      />
+                      {et.nom}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -498,6 +737,23 @@ export default function PageEditionPage() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* ──────── Onglet Historique ──────── */}
+      {ongletActif === "historique" && site && (
+        <OngletHistorique
+          idPage={page.id}
+          idSite={site.id}
+          slugSite={site.slug}
+          urlBaseSite={
+            process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001"
+          }
+          surRestauration={() => {
+            utils.pages.obtenir.invalidate({ id: params.idPage, idSite: site.id });
+            setMessageSucces("Version restaurée !");
+            setTimeout(() => setMessageSucces(""), 3000);
+          }}
+        />
       )}
     </div>
   );

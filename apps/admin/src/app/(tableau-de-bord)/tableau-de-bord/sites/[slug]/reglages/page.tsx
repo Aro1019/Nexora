@@ -14,12 +14,19 @@ import {
   Code,
   Share2,
   BarChart3,
+  Languages,
+  Globe,
+  Plus,
+  X,
+  Star,
+  CheckCircle2,
+  AlertCircle,
   Loader2,
 } from "lucide-react";
-import { cn } from "@nexora/ui";
+import { cn, LANGUES_DISPONIBLES, obtenirInfoLangue } from "@nexora/ui";
 import { trpc } from "@/lib/trpc";
 
-type Onglet = "apparence" | "code" | "reseaux" | "analytics";
+type Onglet = "apparence" | "langues" | "domaine" | "code" | "reseaux" | "analytics";
 
 /** Polices disponibles */
 const POLICES = ["Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Poppins", "Playfair Display", "Merriweather"];
@@ -54,6 +61,17 @@ export default function PageReglages() {
   const [facebook, setFacebook] = useState("");
   const [linkedin, setLinkedin] = useState("");
 
+  /* Langues du site */
+  const [langues, setLangues] = useState<string[]>(["fr"]);
+  const [langueParDefaut, setLangueParDefaut] = useState("fr");
+
+  /* Domaine personnalisé */
+  const [domainePersonnalise, setDomainePersonnalise] = useState("");
+  const [resultatVerif, setResultatVerif] = useState<{
+    valide: boolean;
+    raison: string;
+  } | null>(null);
+
   /* Récupérer le site */
   const { data: site } = trpc.sites.obtenir.useQuery(
     { slug: params.slug },
@@ -79,6 +97,17 @@ export default function PageReglages() {
     onError: (err) => setErreur(err.message),
   });
 
+  /* Mutation pour sauvegarder les langues (sur le modèle Site) */
+  const mutationSite = trpc.sites.modifier.useMutation({
+    onSuccess: () => {
+      utils.sites.obtenir.invalidate({ slug: params.slug });
+      setErreur("");
+      setMessageSucces("Langues sauvegardées !");
+      setTimeout(() => setMessageSucces(""), 3000);
+    },
+    onError: (err) => setErreur(err.message),
+  });
+
   /* Remplir les champs au chargement */
   useEffect(() => {
     if (reglages) {
@@ -98,10 +127,45 @@ export default function PageReglages() {
     }
   }, [reglages]);
 
+  /* Synchroniser les langues depuis le site */
+  useEffect(() => {
+    if (site) {
+      setLangues(site.langues);
+      setLangueParDefaut(site.langueParDefaut);
+      setDomainePersonnalise(site.domainePersonnalise ?? "");
+    }
+  }, [site]);
+
+  /* Mutation vérification DNS */
+  const mutationVerifier = trpc.sites.verifierDomaine.useMutation({
+    onSuccess: (r) => setResultatVerif({ valide: r.valide, raison: r.raison }),
+    onError: (err) =>
+      setResultatVerif({ valide: false, raison: err.message }),
+  });
+
   /** Sauvegarder */
   function gererSauvegarde() {
     if (!site?.id) return;
     setErreur("");
+
+    if (ongletActif === "langues") {
+      mutationSite.mutate({
+        id: site.id,
+        langues,
+        langueParDefaut,
+      });
+      return;
+    }
+
+    if (ongletActif === "domaine") {
+      mutationSite.mutate({
+        id: site.id,
+        domainePersonnalise: domainePersonnalise.trim()
+          ? domainePersonnalise.trim().toLowerCase()
+          : null,
+      });
+      return;
+    }
 
     const liens: Record<string, string> = {};
     if (twitter) liens.twitter = twitter;
@@ -161,10 +225,10 @@ export default function PageReglages() {
             <button
               type="button"
               onClick={gererSauvegarde}
-              disabled={mutationModifier.isPending}
+              disabled={mutationModifier.isPending || mutationSite.isPending}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-nexora-blue/90 disabled:opacity-50 transition-colors"
             >
-              {mutationModifier.isPending ? (
+              {mutationModifier.isPending || mutationSite.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
@@ -186,6 +250,8 @@ export default function PageReglages() {
         <nav className="flex gap-6 -mb-px">
           {([
             { id: "apparence" as const, libelle: "Apparence", icone: Palette },
+            { id: "langues" as const, libelle: "Langues", icone: Languages },
+            { id: "domaine" as const, libelle: "Domaine", icone: Globe },
             { id: "code" as const, libelle: "Code", icone: Code },
             { id: "reseaux" as const, libelle: "Réseaux sociaux", icone: Share2 },
             { id: "analytics" as const, libelle: "Analytics", icone: BarChart3 },
@@ -351,6 +417,279 @@ export default function PageReglages() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ──────── Onglet Langues ──────── */}
+      {ongletActif === "langues" && (
+        <div className="space-y-8 max-w-2xl">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-1.5">
+              Langues activées
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Les pages peuvent être créées dans chaque langue activée. Les visiteurs
+              pourront basculer entre elles via le sélecteur dans l&apos;en-tête.
+            </p>
+
+            {/* Liste des langues activées */}
+            <div className="space-y-2 mb-4">
+              {langues.map((code) => {
+                const info = obtenirInfoLangue(code);
+                const estDefaut = code === langueParDefaut;
+                return (
+                  <div
+                    key={code}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-lg border p-3",
+                      estDefaut
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card"
+                    )}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-2xl">{info.drapeau}</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {info.nomNatif}
+                          <span className="ml-2 text-xs text-muted-foreground font-normal">
+                            ({info.nomFr})
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {info.code}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {estDefaut ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground px-2.5 py-0.5 text-xs font-medium">
+                          <Star className="h-3 w-3 fill-current" />
+                          Par défaut
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setLangueParDefaut(code)}
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                          title="Définir comme langue par défaut"
+                        >
+                          <Star className="h-3 w-3" />
+                          Définir par défaut
+                        </button>
+                      )}
+                      {langues.length > 1 && !estDefaut && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setLangues(langues.filter((l) => l !== code))
+                          }
+                          className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          title="Retirer cette langue"
+                          aria-label="Retirer cette langue"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Ajouter une langue */}
+            <div>
+              <p className="text-xs font-medium text-foreground/80 mb-2">
+                Ajouter une langue
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {LANGUES_DISPONIBLES.filter((l) => !langues.includes(l.code)).map(
+                  (l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => setLangues([...langues, l.code])}
+                      className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-card px-3 py-2 text-left text-sm text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
+                    >
+                      <span className="text-lg">{l.drapeau}</span>
+                      <span className="flex-1 min-w-0 truncate">{l.nomNatif}</span>
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )
+                )}
+              </div>
+              {LANGUES_DISPONIBLES.filter((l) => !langues.includes(l.code))
+                .length === 0 && (
+                <p className="text-xs text-muted-foreground italic">
+                  Toutes les langues disponibles sont déjà activées.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-muted/30 border border-border p-4 text-xs text-muted-foreground">
+            <p className="font-medium text-foreground mb-1">À savoir</p>
+            <ul className="space-y-1 list-disc pl-4">
+              <li>
+                Les pages dans la langue par défaut sont accessibles via l&apos;URL
+                racine (ex&nbsp;: <code className="font-mono">/s/mon-site/</code>).
+              </li>
+              <li>
+                Les autres langues sont préfixées par leur code (ex&nbsp;:{" "}
+                <code className="font-mono">/s/mon-site/en/</code>).
+              </li>
+              <li>
+                Pour traduire une page existante, ouvrez-la et utilisez le bouton
+                «&nbsp;Dupliquer dans une autre langue&nbsp;».
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* ──────── Onglet Domaine ──────── */}
+      {ongletActif === "domaine" && (
+        <div className="space-y-6 max-w-2xl">
+          <div>
+            <label
+              htmlFor="domaine"
+              className="block text-sm font-semibold text-foreground mb-1.5"
+            >
+              Domaine personnalisé
+            </label>
+            <p className="text-xs text-muted-foreground mb-3">
+              Servez votre site depuis votre propre domaine (ex&nbsp;:{" "}
+              <code className="font-mono">monsite.com</code>) plutôt que via
+              l&apos;URL Nexora.
+            </p>
+            <div className="flex gap-2">
+              <input
+                id="domaine"
+                type="text"
+                value={domainePersonnalise}
+                onChange={(e) => {
+                  setDomainePersonnalise(e.target.value);
+                  setResultatVerif(null);
+                }}
+                placeholder="monsite.com"
+                className="flex-1 rounded-md border border-input bg-white px-3.5 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button
+                type="button"
+                disabled={
+                  !domainePersonnalise.trim() ||
+                  mutationVerifier.isPending ||
+                  !site?.id
+                }
+                onClick={() => {
+                  if (!site?.id) return;
+                  setResultatVerif(null);
+                  mutationVerifier.mutate({
+                    idSite: site.id,
+                    domaine: domainePersonnalise.trim().toLowerCase(),
+                  });
+                }}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+              >
+                {mutationVerifier.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Globe className="h-4 w-4" />
+                )}
+                Vérifier
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Sans préfixe (ni <code className="font-mono">https://</code>, ni{" "}
+              <code className="font-mono">www</code>). Laissez vide pour
+              désactiver.
+            </p>
+          </div>
+
+          {/* Résultat de la vérification */}
+          {resultatVerif && (
+            <div
+              className={cn(
+                "flex items-start gap-3 rounded-lg border p-4 text-sm",
+                resultatVerif.valide
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-amber-200 bg-amber-50 text-amber-800"
+              )}
+            >
+              {resultatVerif.valide ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+              )}
+              <div>
+                <p className="font-medium">
+                  {resultatVerif.valide
+                    ? "Domaine correctement résolu."
+                    : "Configuration DNS à vérifier."}
+                </p>
+                <p className="mt-0.5 opacity-90">{resultatVerif.raison}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Instructions DNS */}
+          <div className="rounded-lg border border-border bg-muted/30 p-5">
+            <h4 className="text-sm font-semibold text-foreground mb-3">
+              Comment configurer votre DNS&nbsp;?
+            </h4>
+            <ol className="list-decimal pl-4 space-y-2 text-sm text-muted-foreground">
+              <li>
+                Connectez-vous chez votre registrar (OVH, Gandi, Cloudflare,
+                Google Domains…).
+              </li>
+              <li>
+                Ajoutez un enregistrement <strong>CNAME</strong> ou{" "}
+                <strong>A</strong> selon le type de domaine&nbsp;:
+              </li>
+            </ol>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">
+                  Sous-domaine (recommandé)
+                </p>
+                <code className="block text-xs font-mono text-foreground">
+                  CNAME <strong>www</strong> → cname.nexora.app
+                </code>
+              </div>
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">
+                  Domaine racine
+                </p>
+                <code className="block text-xs font-mono text-foreground">
+                  A <strong>@</strong> → 76.76.21.21
+                </code>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              La propagation DNS peut prendre quelques minutes à plusieurs
+              heures. Cliquez sur «&nbsp;Vérifier&nbsp;» dès que c&apos;est fait.
+            </p>
+          </div>
+
+          {site?.domainePersonnalise && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <p className="font-medium">Domaine actif</p>
+              <p className="mt-0.5">
+                Votre site répond actuellement sur{" "}
+                <a
+                  href={`https://${site.domainePersonnalise}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono underline"
+                >
+                  {site.domainePersonnalise}
+                </a>
+                .
+              </p>
+            </div>
+          )}
         </div>
       )}
 

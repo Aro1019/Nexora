@@ -119,7 +119,9 @@ model Site {
   etiquettes          Etiquette[]
   blocsGlobaux        BlocGlobal[]
   formulaires         Formulaire[]
+  webhooks            Webhook[]
   journaux            JournalAudit[]
+  evenementsVue       EvenementVue[]
 
   creeLe              DateTime   @default(now())
   misAJourLe          DateTime   @updatedAt
@@ -249,14 +251,19 @@ model Page {
   site                Site       @relation(fields: [idSite], references: [id], onDelete: Cascade)
   etiquettesPage      PageEtiquette[]
   categoriesPage      PageCategorie[]
+  evenementsVue       EvenementVue[]
 
   creeLe              DateTime   @default(now())
   misAJourLe          DateTime   @updatedAt
+
+  /// Vecteur de recherche full-text (mis à jour par trigger SQL)
+  recherche           Unsupported("tsvector")?
 
   @@unique([idSite, slug, langue])
   @@index([idSite, statut])
   @@index([idSite, typePage])
   @@index([planifieLe])
+  @@index([recherche], type: Gin)
   @@map("page")
 }
 
@@ -486,6 +493,55 @@ model SoumissionFormulaire {
 }
 
 // ============================================
+// WEBHOOKS
+// ============================================
+
+/// Configuration d'un webhook sortant lié à un site
+model Webhook {
+  id            String   @id @default(cuid())
+  idSite        String
+  nom           String
+  url           String
+  /// Événements abonnés : ["soumission_formulaire.creee"] etc.
+  evenements    String[]
+  /// Secret HMAC utilisé pour signer le corps (header X-Nexora-Signature)
+  secret        String
+  actif         Boolean  @default(true)
+
+  site          Site                @relation(fields: [idSite], references: [id], onDelete: Cascade)
+  livraisons    LivraisonWebhook[]
+
+  creeLe        DateTime @default(now())
+  misAJourLe    DateTime @updatedAt
+
+  @@index([idSite])
+  @@map("webhook")
+}
+
+/// Tentative de livraison d'un webhook
+model LivraisonWebhook {
+  id              String   @id @default(cuid())
+  idWebhook       String
+  evenement       String
+  charge          Json
+  /// EN_ATTENTE, REUSSIE, ECHOUEE
+  statut          String   @default("EN_ATTENTE")
+  codeReponse     Int?
+  reponse         String?
+  tentatives      Int      @default(0)
+  prochaineTentative DateTime?
+
+  webhook         Webhook  @relation(fields: [idWebhook], references: [id], onDelete: Cascade)
+
+  creeLe          DateTime @default(now())
+  misAJourLe      DateTime @updatedAt
+
+  @@index([idWebhook])
+  @@index([statut, prochaineTentative])
+  @@map("livraison_webhook")
+}
+
+// ============================================
 // JOURNAL D'AUDIT
 // ============================================
 
@@ -510,4 +566,38 @@ model JournalAudit {
   @@index([idSite, typeRessource])
   @@index([creeLe])
   @@map("journal_audit")
+}
+
+// ============================================
+// ANALYTIQUES SANS COOKIES
+// ============================================
+
+/// Événement de consultation d'une page publique.
+/// Aucun cookie : le visiteur est identifié par un hash quotidien
+/// (IP + UA + sel + date), conforme RGPD sans bandeau.
+model EvenementVue {
+  id                String   @id @default(cuid())
+  idSite            String
+  idPage            String?
+  /// Chemin sans préfixe de langue (ex: "/a-propos")
+  chemin            String
+  langue            String   @default("fr")
+  /// Code pays ISO-2 déduit de l'en-tête (best effort)
+  pays              String?
+  /// Hôte du site référent, sans le chemin (ex: "google.com")
+  referent          String?
+  /// "bureau" | "tablette" | "mobile"
+  typeAppareil      String?
+  /// Hash anonyme stable sur la journée (visiteur unique).
+  idVisiteurAnonyme String
+
+  site              Site     @relation(fields: [idSite], references: [id], onDelete: Cascade)
+  page              Page?    @relation(fields: [idPage], references: [id], onDelete: SetNull)
+
+  dateHeure         DateTime @default(now())
+
+  @@index([idSite, dateHeure])
+  @@index([idSite, chemin])
+  @@index([idSite, idVisiteurAnonyme, dateHeure])
+  @@map("evenement_vue")
 }

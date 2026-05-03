@@ -4,11 +4,11 @@
  * Page de création d'une nouvelle page pour un site.
  * Formulaire en 2 étapes : infos de base → confirmation.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, FileText, Check, Loader2 } from "lucide-react";
-import { cn } from "@nexora/ui";
+import { cn, obtenirInfoLangue } from "@nexora/ui";
 import { trpc } from "@/lib/trpc";
 
 /** Types de page disponibles */
@@ -44,6 +44,7 @@ export default function PageNouvellePage() {
   const [titre, setTitre] = useState("");
   const [slug, setSlug] = useState("");
   const [slugModifie, setSlugModifie] = useState(false);
+  const [langue, setLangue] = useState("fr");
   const [titreMeta, setTitreMeta] = useState("");
   const [descriptionMeta, setDescriptionMeta] = useState("");
   const [extrait, setExtrait] = useState("");
@@ -54,6 +55,13 @@ export default function PageNouvellePage() {
     { slug: params.slug },
     { enabled: !!params.slug }
   );
+
+  /* Pré-sélectionner la langue par défaut du site */
+  useEffect(() => {
+    if (site?.langueParDefaut) {
+      setLangue(site.langueParDefaut);
+    }
+  }, [site?.langueParDefaut]);
 
   const utils = trpc.useUtils();
 
@@ -98,6 +106,7 @@ export default function PageNouvellePage() {
       idSite: site.id,
       titre,
       slug: slugFinal,
+      langue,
       typePage,
       titreMeta: titreMeta || undefined,
       descriptionMeta: descriptionMeta || undefined,
@@ -183,6 +192,31 @@ export default function PageNouvellePage() {
             className="w-full rounded-md border border-input bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           />
         </div>
+
+        {/* ──────── Langue (uniquement si plusieurs activées) ──────── */}
+        {site && site.langues.length > 1 && (
+          <div>
+            <label htmlFor="langue" className="block text-sm font-medium text-foreground mb-1.5">
+              Langue
+            </label>
+            <select
+              id="langue"
+              value={langue}
+              onChange={(e) => setLangue(e.target.value)}
+              className="w-full rounded-md border border-input bg-white px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+            >
+              {site.langues.map((l) => {
+                const info = obtenirInfoLangue(l);
+                return (
+                  <option key={l} value={l}>
+                    {info.drapeau} {info.nomNatif}
+                    {l === site.langueParDefaut ? " (par défaut)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
 
         {/* ──────── Slug (masqué pour ACCUEIL) ──────── */}
         {typePage !== "ACCUEIL" && (

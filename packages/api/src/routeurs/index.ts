@@ -8,6 +8,13 @@ import { routeurPages } from "./pages";
 import { routeurMedias } from "./medias";
 import { routeurNavigations } from "./navigations";
 import { routeurReglages } from "./reglages";
+import { routeurFormulaires } from "./formulaires";
+import { routeurCategories } from "./categories";
+import { routeurEtiquettes } from "./etiquettes";
+import { routeurAnalytics } from "./analytics";
+import { routeurVersions } from "./versions";
+import { routeurWebhooks } from "./webhooks";
+import { routeurRecherche } from "./recherche";
 
 export const routeurRacine = creerRouteur({
   sites: routeurSites,
@@ -16,6 +23,13 @@ export const routeurRacine = creerRouteur({
   medias: routeurMedias,
   navigations: routeurNavigations,
   reglages: routeurReglages,
+  formulaires: routeurFormulaires,
+  categories: routeurCategories,
+  etiquettes: routeurEtiquettes,
+  analytics: routeurAnalytics,
+  versions: routeurVersions,
+  webhooks: routeurWebhooks,
+  recherche: routeurRecherche,
 });
 
 /** Type du routeur racine — utilisé côté client */

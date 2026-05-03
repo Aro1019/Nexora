@@ -22,7 +22,7 @@ import {
   Archive,
   Trash2,
 } from "lucide-react";
-import { cn } from "@nexora/ui";
+import { cn, obtenirInfoLangue } from "@nexora/ui";
 import { trpc } from "@/lib/trpc";
 
 /** Icônes et libellés par type de page */
@@ -53,6 +53,7 @@ export default function PageListePages() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
   const [filtreType, setFiltreType] = useState<"ACCUEIL" | "PAGE" | "ARTICLE" | "INDEX_BLOG" | undefined>();
+  const [filtreLangue, setFiltreLangue] = useState<string | undefined>();
   const [recherche, setRecherche] = useState("");
 
   /* Récupérer le site */
@@ -63,7 +64,7 @@ export default function PageListePages() {
 
   /* Récupérer les pages */
   const { data: pages, isLoading } = trpc.pages.lister.useQuery(
-    { idSite: site?.id ?? "", typePage: filtreType },
+    { idSite: site?.id ?? "", typePage: filtreType, langue: filtreLangue },
     { enabled: !!site?.id }
   );
 
@@ -130,6 +131,26 @@ export default function PageListePages() {
             className="w-full rounded-md border border-input bg-white pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           />
         </div>
+
+        {/* Filtre langue (visible si plus d'une langue) */}
+        {site && site.langues.length > 1 && (
+          <select
+            value={filtreLangue ?? ""}
+            onChange={(e) => setFiltreLangue(e.target.value || undefined)}
+            className="rounded-md border border-input bg-white px-3 py-2 text-sm text-foreground"
+            aria-label="Filtrer par langue"
+          >
+            <option value="">Toutes les langues</option>
+            {site.langues.map((l) => {
+              const info = obtenirInfoLangue(l);
+              return (
+                <option key={l} value={l}>
+                  {info.drapeau} {info.nomNatif}
+                </option>
+              );
+            })}
+          </select>
+        )}
 
         {/* Filtres type */}
         <div className="flex gap-1 rounded-md border border-input bg-white p-1">
@@ -212,8 +233,16 @@ export default function PageListePages() {
                   <div className="sm:col-span-5 flex items-center gap-3 min-w-0">
                     <IconeType className="h-4 w-4 text-muted-foreground shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
+                      <p className="text-sm font-medium text-foreground truncate flex items-center gap-2">
                         {page.titre}
+                        {site && site.langues.length > 1 && (
+                          <span
+                            className="text-base shrink-0"
+                            title={obtenirInfoLangue(page.langue).nomNatif}
+                          >
+                            {obtenirInfoLangue(page.langue).drapeau}
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {page.chemin}

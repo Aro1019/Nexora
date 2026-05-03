@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * ShellTableauDeBord — composant client qui assemble la sidebar,
- * le header et le contenu principal du dashboard.
- * Gère l'état mobile et la déconnexion.
+ * ShellTableauDeBord — assemble la sidebar, le header et le contenu.
+ * Fond avec grille subtile et orbe lumineuse pour donner de la profondeur.
  */
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -11,7 +10,6 @@ import { clientAuth } from "@nexora/auth";
 import { BarreLaterale } from "./barre-laterale";
 import { EnTete } from "./en-tete";
 
-/** Mapping chemin → titre pour le header */
 const TITRES_PAGES: Record<string, string> = {
   "/tableau-de-bord": "Tableau de bord",
   "/tableau-de-bord/sites": "Mes sites",
@@ -38,15 +36,13 @@ export function ShellTableauDeBord({
   const routeur = useRouter();
   const chemin = usePathname();
 
-  /** Déterminer le titre à afficher */
   const titre =
     TITRES_PAGES[chemin] ||
-    Object.entries(TITRES_PAGES).find(([cle]) =>
-      chemin.startsWith(cle) && cle !== "/tableau-de-bord"
+    Object.entries(TITRES_PAGES).find(
+      ([cle]) => chemin.startsWith(cle) && cle !== "/tableau-de-bord"
     )?.[1] ||
     "Tableau de bord";
 
-  /** Déconnexion et redirection */
   async function gererDeconnexion() {
     await clientAuth.signOut();
     routeur.push("/connexion");
@@ -54,7 +50,7 @@ export function ShellTableauDeBord({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background">
       <BarreLaterale
         nomUtilisateur={nomUtilisateur}
         emailUtilisateur={emailUtilisateur}
@@ -64,13 +60,16 @@ export function ShellTableauDeBord({
         surDeconnexion={gererDeconnexion}
       />
 
-      <div className="flex flex-1 flex-col">
-        <EnTete
-          titre={titre}
-          surOuvrirMenu={() => setMenuMobileOuvert(true)}
-        />
-        <main className="flex-1 bg-white-ice p-4 sm:p-6">
-          {children}
+      <div className="flex flex-1 flex-col min-w-0 relative">
+        {/* ── Fond décoratif subtil ── */}
+        <div className="absolute inset-0 bg-grid-subtle mask-radial pointer-events-none" />
+        <div className="absolute top-0 right-1/4 w-[500px] h-[400px] rounded-full bg-sky/5 blur-3xl pointer-events-none" />
+        <div className="absolute top-40 -left-20 w-[300px] h-[300px] rounded-full bg-teal/5 blur-3xl pointer-events-none" />
+
+        <EnTete titre={titre} surOuvrirMenu={() => setMenuMobileOuvert(true)} />
+
+        <main className="relative flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="animate-fade-in">{children}</div>
         </main>
       </div>
     </div>

@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { FournisseurTRPC } from "@/composants/fournisseur-trpc";
+import {
+  FournisseurTheme,
+  SCRIPT_INIT_THEME,
+} from "@/composants/fournisseur-theme";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -18,9 +22,15 @@ export default function DispositionRacine({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
+    <html lang="fr" suppressHydrationWarning>
+      <head>
+        {/* Script anti-FOUC : applique la classe `dark` avant le rendu */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_INIT_THEME }} />
+      </head>
       <body className={`${inter.className} bg-background text-foreground`}>
-        <FournisseurTRPC>{children}</FournisseurTRPC>
+        <FournisseurTheme>
+          <FournisseurTRPC>{children}</FournisseurTRPC>
+        </FournisseurTheme>
       </body>
     </html>
   );

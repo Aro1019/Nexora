@@ -6,6 +6,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { type PrismaClient } from "@nexora/db";
 import { creerRouteur, procedureProtegee } from "../trpc";
+import { signerJetonApercu } from "../lib/jeton-apercu";
+import { declencherEvenementWebhook } from "../lib/webhooks";
 
 // ─────────────────────────────────────────
 // Helpers
@@ -61,6 +63,10 @@ const schemaCreationPage = z.object({
       /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
       "Le slug ne peut contenir que des lettres minuscules, chiffres et tirets"
     ),
+  langue: z
+    .string()
+    .regex(/^[a-z]{2}(?:-[A-Z]{2})?$/)
+    .default("fr"),
   typePage: z.enum(["ACCUEIL", "PAGE", "ARTICLE", "INDEX_BLOG"]).default("PAGE"),
   contenu: z.any().default([]),
   /* Champs optionnels */
@@ -68,6 +74,8 @@ const schemaCreationPage = z.object({
   descriptionMeta: z.string().max(160).optional(),
   extrait: z.string().max(500).optional(),
   idParent: z.string().optional(),
+  idsCategories: z.array(z.string()).optional(),
+  idsEtiquettes: z.array(z.string()).optional(),
 });
 
 const schemaModificationPage = z.object({
@@ -91,6 +99,8 @@ const schemaModificationPage = z.object({
   idParent: z.string().optional().nullable(),
   publieLe: z.string().datetime().optional().nullable(),
   planifieLe: z.string().datetime().optional().nullable(),
+  idsCategories: z.array(z.string()).optional(),
+  idsEtiquettes: z.array(z.string()).optional(),
 });
 
 // ─────────────────────────────────────────
@@ -108,6 +118,9 @@ export const routeurPages = creerRouteur({
         idSite: z.string(),
         typePage: z.enum(["ACCUEIL", "PAGE", "ARTICLE", "INDEX_BLOG"]).optional(),
         statut: z.enum(["BROUILLON", "PUBLIE", "PLANIFIE", "ARCHIVE"]).optional(),
+        langue: z.string().optional(),
+        idCategorie: z.string().optional(),
+        idEtiquette: z.string().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -116,6 +129,13 @@ export const routeurPages = creerRouteur({
       const filtres: Record<string, unknown> = { idSite: input.idSite };
       if (input.typePage) filtres.typePage = input.typePage;
       if (input.statut) filtres.statut = input.statut;
+      if (input.langue) filtres.langue = input.langue;
+      if (input.idCategorie) {
+        filtres.categoriesPage = { some: { idCategorie: input.idCategorie } };
+      }
+      if (input.idEtiquette) {
+        filtres.etiquettesPage = { some: { idEtiquette: input.idEtiquette } };
+      }
 
       const pages = await ctx.db.page.findMany({
         where: filtres,
@@ -126,6 +146,7 @@ export const routeurPages = creerRouteur({
           chemin: true,
           typePage: true,
           statut: true,
+          langue: true,
           ordreAffichage: true,
           publieLe: true,
           creeLe: true,
@@ -183,14 +204,26 @@ export const routeurPages = creerRouteur({
     .mutation(async ({ ctx, input }) => {
       await verifierAccesSite(ctx.db, ctx.utilisateur.id, input.idSite, "EDITEUR");
 
-      /* Vérifier l'unicité du slug sur ce site */
+      /* Vérifier l'unicité du slug pour cette langue sur ce site */
       const slugExistant = await ctx.db.page.findFirst({
-        where: { idSite: input.idSite, slug: input.slug, langue: "fr" },
+        where: { idSite: input.idSite, slug: input.slug, langue: input.langue },
       });
       if (slugExistant) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "Une page avec ce slug existe déjà sur ce site.",
+          message: "Une page avec ce slug existe déjà dans cette langue.",
+        });
+      }
+
+      /* Vérifier que la langue est activée sur le site */
+      const siteCible = await ctx.db.site.findUnique({
+        where: { id: input.idSite },
+        select: { langues: true },
+      });
+      if (siteCible && !siteCible.langues.includes(input.langue)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cette langue n'est pas activée sur ce site.",
         });
       }
 
@@ -213,12 +246,31 @@ export const routeurPages = creerRouteur({
           titre: input.titre,
           slug: input.slug,
           chemin,
+          langue: input.langue,
           typePage: input.typePage,
           contenu: input.contenu,
           titreMeta: input.titreMeta,
           descriptionMeta: input.descriptionMeta,
           extrait: input.extrait,
           idParent: input.idParent,
+          ...(input.idsCategories && input.idsCategories.length > 0
+            ? {
+                categoriesPage: {
+                  create: input.idsCategories.map((idCategorie) => ({
+                    idCategorie,
+                  })),
+                },
+              }
+            : {}),
+          ...(input.idsEtiquettes && input.idsEtiquettes.length > 0
+            ? {
+                etiquettesPage: {
+                  create: input.idsEtiquettes.map((idEtiquette) => ({
+                    idEtiquette,
+                  })),
+                },
+              }
+            : {}),
         },
       });
 
@@ -250,7 +302,21 @@ export const routeurPages = creerRouteur({
       /* Vérifier que la page existe et appartient au site */
       const pageExistante = await ctx.db.page.findUnique({
         where: { id },
-        select: { idSite: true, chemin: true, slug: true },
+        select: {
+          idSite: true,
+          chemin: true,
+          slug: true,
+          langue: true,
+          contenu: true,
+          titre: true,
+          titreMeta: true,
+          descriptionMeta: true,
+          versions: {
+            orderBy: { version: "desc" },
+            take: 1,
+            select: { version: true, creeLe: true, creePar: true },
+          },
+        },
       });
       if (!pageExistante || pageExistante.idSite !== idSite) {
         throw new TRPCError({
@@ -259,15 +325,20 @@ export const routeurPages = creerRouteur({
         });
       }
 
-      /* Si le slug change, vérifier l'unicité */
+      /* Si le slug change, vérifier l'unicité dans la même langue */
       if (donnees.slug && donnees.slug !== pageExistante.slug) {
         const slugPris = await ctx.db.page.findFirst({
-          where: { idSite, slug: donnees.slug, langue: "fr", NOT: { id } },
+          where: {
+            idSite,
+            slug: donnees.slug,
+            langue: pageExistante.langue,
+            NOT: { id },
+          },
         });
         if (slugPris) {
           throw new TRPCError({
             code: "CONFLICT",
-            message: "Une page avec ce slug existe déjà.",
+            message: "Une page avec ce slug existe déjà dans cette langue.",
           });
         }
       }
@@ -281,10 +352,80 @@ export const routeurPages = creerRouteur({
         donneesFinales.planifieLe = donnees.planifieLe ? new Date(donnees.planifieLe) : null;
       }
 
+      /* Les jonctions cat/étiq sont gérées à part (delete + create) */
+      const idsCategories = donneesFinales.idsCategories as string[] | undefined;
+      const idsEtiquettes = donneesFinales.idsEtiquettes as string[] | undefined;
+      delete donneesFinales.idsCategories;
+      delete donneesFinales.idsEtiquettes;
+
       const page = await ctx.db.page.update({
         where: { id },
         data: donneesFinales,
       });
+
+      if (idsCategories !== undefined) {
+        await ctx.db.pageCategorie.deleteMany({ where: { idPage: id } });
+        if (idsCategories.length > 0) {
+          await ctx.db.pageCategorie.createMany({
+            data: idsCategories.map((idCategorie) => ({ idPage: id, idCategorie })),
+          });
+        }
+      }
+
+      if (idsEtiquettes !== undefined) {
+        await ctx.db.pageEtiquette.deleteMany({ where: { idPage: id } });
+        if (idsEtiquettes.length > 0) {
+          await ctx.db.pageEtiquette.createMany({
+            data: idsEtiquettes.map((idEtiquette) => ({ idPage: id, idEtiquette })),
+          });
+        }
+      }
+
+      /* Snapshot de version : créé si le contenu a changé et que la
+         dernière version d'auto-snapshot a plus de 2 minutes (throttle).
+         Les snapshots manuels (publication) restent toujours créés. */
+      const contenuAChange =
+        donnees.contenu !== undefined &&
+        JSON.stringify(donnees.contenu) !== JSON.stringify(pageExistante.contenu);
+      const derniereVersion = pageExistante.versions[0];
+      const ageDerniereSec = derniereVersion
+        ? (Date.now() - new Date(derniereVersion.creeLe).getTime()) / 1000
+        : Infinity;
+      const memeAuteurRecent =
+        derniereVersion?.creePar === ctx.utilisateur.id && ageDerniereSec < 120;
+
+      if (contenuAChange && !memeAuteurRecent) {
+        const prochainNumero = (derniereVersion?.version ?? 0) + 1;
+        await ctx.db.versionPage.create({
+          data: {
+            idPage: id,
+            version: prochainNumero,
+            contenu: (donnees.contenu ?? pageExistante.contenu) as object,
+            titre: donnees.titre ?? pageExistante.titre,
+            titreMeta: donnees.titreMeta ?? pageExistante.titreMeta,
+            descriptionMeta:
+              donnees.descriptionMeta ?? pageExistante.descriptionMeta,
+            creePar: ctx.utilisateur.id,
+            note: "Sauvegarde automatique",
+          },
+        });
+
+        /* Auto-purge : ne garder que les 50 dernières versions */
+        const versionsAGarder = await ctx.db.versionPage.findMany({
+          where: { idPage: id },
+          orderBy: { version: "desc" },
+          skip: 50,
+          select: { id: true, publiePour: { select: { id: true } } },
+        });
+        const aSupprimer = versionsAGarder
+          .filter((v) => !v.publiePour)
+          .map((v) => v.id);
+        if (aSupprimer.length > 0) {
+          await ctx.db.versionPage.deleteMany({
+            where: { id: { in: aSupprimer } },
+          });
+        }
+      }
 
       /* Journal d'audit */
       await ctx.db.journalAudit.create({
@@ -418,6 +559,158 @@ export const routeurPages = creerRouteur({
         },
       });
 
+      /* Déclencher webhooks */
+      declencherEvenementWebhook({
+        db: ctx.db,
+        idSite: input.idSite,
+        evenement: "page.publiee",
+        charge: {
+          id_page: page.id,
+          slug: page.slug,
+          titre: page.titre,
+          version: prochainNumero,
+          publie_le: pageMiseAJour.publieLe?.toISOString() ?? null,
+        },
+      });
+
       return pageMiseAJour;
+    }),
+
+  /**
+   * Dupliquer une page dans une autre langue.
+   * Crée une nouvelle page avec le même contenu, dans la langue cible,
+   * en statut BROUILLON. EDITEUR+ requis.
+   */
+  dupliquerDansLangue: procedureProtegee
+    .input(
+      z.object({
+        id: z.string(),
+        idSite: z.string(),
+        langueCible: z.string().regex(/^[a-z]{2}(?:-[A-Z]{2})?$/),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifierAccesSite(ctx.db, ctx.utilisateur.id, input.idSite, "EDITEUR");
+
+      const source = await ctx.db.page.findUnique({ where: { id: input.id } });
+      if (!source || source.idSite !== input.idSite) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Page introuvable." });
+      }
+      if (source.langue === input.langueCible) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "La page est déjà dans cette langue.",
+        });
+      }
+
+      /* Vérifier que la langue cible est activée */
+      const site = await ctx.db.site.findUnique({
+        where: { id: input.idSite },
+        select: { langues: true },
+      });
+      if (site && !site.langues.includes(input.langueCible)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cette langue n'est pas activée sur le site.",
+        });
+      }
+
+      /* Vérifier qu'aucune page n'existe déjà avec ce slug dans la langue cible */
+      const conflit = await ctx.db.page.findFirst({
+        where: {
+          idSite: input.idSite,
+          slug: source.slug,
+          langue: input.langueCible,
+        },
+      });
+      if (conflit) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Une page avec ce slug existe déjà dans la langue cible.",
+        });
+      }
+
+      const copie = await ctx.db.page.create({
+        data: {
+          idSite: source.idSite,
+          titre: source.titre,
+          slug: source.slug,
+          chemin: source.chemin,
+          langue: input.langueCible,
+          typePage: source.typePage,
+          contenu: source.contenu ?? [],
+          titreMeta: source.titreMeta,
+          descriptionMeta: source.descriptionMeta,
+          extrait: source.extrait,
+          imageMiseEnAvant: source.imageMiseEnAvant,
+          idParent: source.idParent,
+          statut: "BROUILLON",
+        },
+      });
+
+      await ctx.db.journalAudit.create({
+        data: {
+          idSite: input.idSite,
+          idUtilisateur: ctx.utilisateur.id,
+          action: "page.dupliquee",
+          typeRessource: "page",
+          idRessource: copie.id,
+          metadonnees: {
+            sourceId: source.id,
+            langueSource: source.langue,
+            langueCible: input.langueCible,
+          },
+        },
+      });
+
+      return copie;
+    }),
+
+  /**
+   * Génère un lien d'aperçu signé permettant de partager une page (même
+   * en BROUILLON) avec un visiteur non authentifié pendant une durée limitée.
+   * EDITEUR+ requis.
+   */
+  creerLienApercu: procedureProtegee
+    .input(
+      z.object({
+        id: z.string(),
+        idSite: z.string(),
+        /** Durée de validité en heures (1 à 720 = 30 jours). */
+        dureeHeures: z.number().int().min(1).max(720).default(72),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifierAccesSite(ctx.db, ctx.utilisateur.id, input.idSite, "EDITEUR");
+
+      /* Vérifier que la page existe et appartient bien au site */
+      const page = await ctx.db.page.findUnique({
+        where: { id: input.id },
+        select: { id: true, idSite: true },
+      });
+      if (!page || page.idSite !== input.idSite) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Page introuvable." });
+      }
+
+      const jeton = signerJetonApercu(
+        { idPage: input.id, idSite: input.idSite },
+        input.dureeHeures * 3600
+      );
+
+      await ctx.db.journalAudit.create({
+        data: {
+          idSite: input.idSite,
+          idUtilisateur: ctx.utilisateur.id,
+          action: "page.lien_apercu_cree",
+          typeRessource: "page",
+          idRessource: input.id,
+          metadonnees: { dureeHeures: input.dureeHeures },
+        },
+      });
+
+      return {
+        jeton,
+        expireDans: input.dureeHeures * 3600,
+      };
     }),
 });
