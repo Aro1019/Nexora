@@ -23,6 +23,16 @@ import {
 } from "lucide-react";
 import { cn } from "@nexora/ui";
 import { trpc } from "@/lib/trpc";
+import {
+  type ApparenceEntete,
+  type ApparencePied,
+  APPARENCE_ENTETE_DEFAUT,
+  APPARENCE_PIED_DEFAUT,
+} from "@nexora/types";
+import {
+  PanneauApparenceEntete,
+  PanneauApparencePied,
+} from "@/composants/navigation/panneau-apparence";
 
 /** Emplacements disponibles */
 const EMPLACEMENTS = [
@@ -55,6 +65,8 @@ export default function PageNavigations() {
   const [elementOuvert, setElementOuvert] = useState<string | null>(null);
   const [messageSucces, setMessageSucces] = useState("");
   const [erreur, setErreur] = useState("");
+  const [apparenceEntete, setApparenceEntete] = useState<ApparenceEntete>(APPARENCE_ENTETE_DEFAUT);
+  const [apparencePied, setApparencePied] = useState<ApparencePied>(APPARENCE_PIED_DEFAUT);
 
   /* Formulaire nouvel élément */
   const [nouveauLibelle, setNouveauLibelle] = useState("");
@@ -98,9 +110,22 @@ export default function PageNavigations() {
     if (navigation) {
       setLibelle(navigation.libelle);
       setElements((navigation.elements as unknown as ElementMenu[]) ?? []);
+      const app = navigation.apparence as Record<string, unknown> | null;
+      if (app && app.emplacement === "ENTETE") {
+        setApparenceEntete({ ...APPARENCE_ENTETE_DEFAUT, ...(app as unknown as ApparenceEntete) });
+      } else if (emplacementActif === "ENTETE") {
+        setApparenceEntete(APPARENCE_ENTETE_DEFAUT);
+      }
+      if (app && app.emplacement === "PIED_DE_PAGE") {
+        setApparencePied({ ...APPARENCE_PIED_DEFAUT, ...(app as unknown as ApparencePied) });
+      } else if (emplacementActif === "PIED_DE_PAGE") {
+        setApparencePied(APPARENCE_PIED_DEFAUT);
+      }
     } else {
       setLibelle(emplacementActif === "ENTETE" ? "Menu principal" : emplacementActif === "PIED_DE_PAGE" ? "Pied de page" : "Barre latérale");
       setElements([]);
+      if (emplacementActif === "ENTETE") setApparenceEntete(APPARENCE_ENTETE_DEFAUT);
+      if (emplacementActif === "PIED_DE_PAGE") setApparencePied(APPARENCE_PIED_DEFAUT);
     }
   }, [navigation, emplacementActif]);
 
@@ -108,11 +133,18 @@ export default function PageNavigations() {
   function gererSauvegarde() {
     if (!site?.id) return;
     setErreur("");
+    let apparence: ApparenceEntete | ApparencePied | undefined;
+    if (emplacementActif === "ENTETE") {
+      apparence = { ...apparenceEntete, emplacement: "ENTETE" };
+    } else if (emplacementActif === "PIED_DE_PAGE") {
+      apparence = { ...apparencePied, emplacement: "PIED_DE_PAGE" };
+    }
     mutationSauvegarder.mutate({
       idSite: site.id,
       emplacement: emplacementActif,
       libelle,
       elements,
+      apparence: apparence as never,
     });
   }
 
@@ -465,6 +497,18 @@ export default function PageNavigations() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ==================== Panneau Apparence ==================== */}
+      {!isLoading && peutModifier && emplacementActif === "ENTETE" && (
+        <div className="mt-8">
+          <PanneauApparenceEntete valeur={apparenceEntete} onChange={setApparenceEntete} />
+        </div>
+      )}
+      {!isLoading && peutModifier && emplacementActif === "PIED_DE_PAGE" && (
+        <div className="mt-8">
+          <PanneauApparencePied valeur={apparencePied} onChange={setApparencePied} />
         </div>
       )}
     </div>

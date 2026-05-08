@@ -56,6 +56,88 @@ export interface ElementNavigation {
   enfants?: ElementNavigation[];
 }
 
+/** Bouton d'appel à l'action affiché dans l'en-tête */
+export interface BoutonCTA {
+  active: boolean;
+  texte: string;
+  url: string;
+  couleurFond?: string;
+  couleurTexte?: string;
+}
+
+/** Apparence visuelle d'un en-tête de site */
+export interface ApparenceEntete {
+  positionLiens: "gauche" | "centre" | "droite";
+  sticky: boolean;
+  transparent: boolean;
+  couleurFond?: string;
+  couleurTexte?: string;
+  hauteur: "compact" | "normal" | "grand";
+  afficherLogo: boolean;
+  afficherRecherche: boolean;
+  cta: BoutonCTA;
+}
+
+/** Apparence visuelle d'un pied de page de site */
+export interface ApparencePied {
+  nbColonnes: 1 | 2 | 3 | 4;
+  couleurFond?: string;
+  couleurTexte?: string;
+  afficherLogo: boolean;
+  description?: string;
+  afficherReseauxSociaux: boolean;
+  texteCopyright?: string;
+  newsletter: {
+    active: boolean;
+    titre?: string;
+    placeholder?: string;
+  };
+  selecteurLangue: boolean;
+  liensSecondaires: Array<{ id: string; libelle: string; url: string }>;
+}
+
+/** Apparence d'une barre latérale (placeholder pour évolution future) */
+export interface ApparenceBarreLaterale {
+  cote: "gauche" | "droite";
+  couleurFond?: string;
+  couleurTexte?: string;
+  largeur: "etroite" | "normale" | "large";
+}
+
+/**
+ * Apparence d'une navigation. Le contenu effectif dépend de l'emplacement
+ * (ENTETE => ApparenceEntete, PIED_DE_PAGE => ApparencePied, etc.).
+ */
+export type ApparenceNavigation =
+  | ({ emplacement: "ENTETE" } & ApparenceEntete)
+  | ({ emplacement: "PIED_DE_PAGE" } & ApparencePied)
+  | ({ emplacement: "BARRE_LATERALE" } & ApparenceBarreLaterale);
+
+/** Valeurs par défaut pour l'apparence d'un en-tête */
+export const APPARENCE_ENTETE_DEFAUT: ApparenceEntete = {
+  positionLiens: "droite",
+  sticky: true,
+  transparent: false,
+  hauteur: "normal",
+  afficherLogo: true,
+  afficherRecherche: false,
+  cta: {
+    active: false,
+    texte: "Commencer",
+    url: "/",
+  },
+};
+
+/** Valeurs par défaut pour l'apparence d'un pied de page */
+export const APPARENCE_PIED_DEFAUT: ApparencePied = {
+  nbColonnes: 3,
+  afficherLogo: true,
+  afficherReseauxSociaux: true,
+  newsletter: { active: false, titre: "Newsletter", placeholder: "votre@email.com" },
+  selecteurLangue: false,
+  liensSecondaires: [],
+};
+
 // ============================================
 // TYPES DE FORMULAIRES
 // ============================================

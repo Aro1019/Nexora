@@ -30,6 +30,8 @@ export interface NavigationResolu {
   libelle: string;
   emplacement: "ENTETE" | "PIED_DE_PAGE" | "BARRE_LATERALE";
   elements: ElementMenu[];
+  /** Apparence visuelle (typage large : ApparenceEntete | ApparencePied | etc.) */
+  apparence: Record<string, unknown> | null;
 }
 
 /**
@@ -115,5 +117,6 @@ export async function resoudreNavigation(
     libelle: nav.libelle,
     emplacement: nav.emplacement,
     elements: resoudre(elementsBruts),
+    apparence: (nav.apparence as Record<string, unknown> | null) ?? null,
   };
 }

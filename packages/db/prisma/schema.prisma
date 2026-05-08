@@ -432,6 +432,8 @@ model Navigation {
   emplacement EmplacementNavigation @default(ENTETE)
   /// Éléments du menu au format JSON — voir type ElementNavigation
   elements    Json                  @default("[]")
+  /// Personnalisation visuelle (couleurs, position, sticky, CTA, etc.) — voir type ApparenceNavigation
+  apparence   Json?
 
   site        Site @relation(fields: [idSite], references: [id], onDelete: Cascade)
 

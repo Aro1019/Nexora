@@ -19,6 +19,8 @@ import {
   Copy,
   Tags,
   History,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cn, obtenirInfoLangue } from "@nexora/ui";
 import { trpc } from "@/lib/trpc";
@@ -48,6 +50,7 @@ export default function PageEditionPage() {
   const [messageSucces, setMessageSucces] = useState("");
   const [modifie, setModifie] = useState(false);
   const [menuLangueOuvert, setMenuLangueOuvert] = useState(false);
+  const [historiqueOuvert, setHistoriqueOuvert] = useState(false);
 
   /* Récupérer le site */
   const { data: site } = trpc.sites.obtenir.useQuery(
@@ -423,7 +426,12 @@ export default function PageEditionPage() {
               Contenu de la page
             </label>
             <EditeurBlocs
-              contenuInitial={contenu}
+              key={page.id}
+              contenuInitial={
+                Array.isArray(page.contenu)
+                  ? (page.contenu as unknown as ContenuPage)
+                  : []
+              }
               surChangement={(nouveau) => {
                 setContenu(nouveau);
                 marquerModifie();
@@ -451,36 +459,51 @@ export default function PageEditionPage() {
             </div>
           )}
 
-          {/* Historique des versions */}
+          {/* Historique des versions (repliable) */}
           {page.versions.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-3">
+              <button
+                type="button"
+                onClick={() => setHistoriqueOuvert((v) => !v)}
+                className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-3 hover:text-primary transition-colors"
+                aria-expanded={historiqueOuvert}
+              >
+                {historiqueOuvert ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
                 Historique des versions
-              </h3>
-              <div className="rounded-lg border border-border divide-y divide-border">
-                {page.versions.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between px-4 py-2.5">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">
-                        v{v.version}
-                      </span>
-                      {v.note && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          — {v.note}
+                <span className="ml-1 text-xs text-muted-foreground">
+                  ({page.versions.length})
+                </span>
+              </button>
+              {historiqueOuvert && (
+                <div className="rounded-lg border border-border divide-y divide-border">
+                  {page.versions.map((v) => (
+                    <div key={v.id} className="flex items-center justify-between px-4 py-2.5">
+                      <div>
+                        <span className="text-sm font-medium text-foreground">
+                          v{v.version}
                         </span>
-                      )}
+                        {v.note && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            — {v.note}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(v.creeLe).toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(v.creeLe).toLocaleDateString("fr-FR", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -83,6 +83,21 @@ export function PanneauApercu({
     return () => clearTimeout(handle);
   }, [contenu, titre, iframePret]);
 
+  /* Fermer aperçu / partage avec la touche Échap. */
+  useEffect(() => {
+    if (!ouvertApercu && !ouvertPartage) return;
+    function gererEchap(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (ouvertPartage) {
+        setOuvertPartage(false);
+      } else if (ouvertApercu) {
+        setOuvertApercu(false);
+      }
+    }
+    window.addEventListener("keydown", gererEchap);
+    return () => window.removeEventListener("keydown", gererEchap);
+  }, [ouvertApercu, ouvertPartage]);
+
   /** Génère un lien partageable selon la durée choisie. */
   function genererLienPartage() {
     setJetonPartage(null);

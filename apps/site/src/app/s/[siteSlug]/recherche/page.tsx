@@ -99,6 +99,13 @@ export default async function PageRecherche({
       } as React.CSSProperties)
     : {};
 
+  const liensRS = (reglages?.liensReseauxSociaux as Record<string, string> | null) ?? null;
+  const reseauxSociaux = liensRS
+    ? Object.entries(liensRS)
+        .filter(([, url]) => !!url)
+        .map(([reseau, url]) => ({ reseau, url }))
+    : [];
+
   let resultats: ResultatBrut[] = [];
   let total = 0;
   if (requeteUtilisateur.length >= 2) {
@@ -157,6 +164,7 @@ export default async function PageRecherche({
         langueCourante={site.langueParDefaut}
         langueParDefaut={site.langueParDefaut}
         cheminCourant="/recherche"
+        apparence={navEntete?.apparence as never}
       />
 
       <main className="mx-auto max-w-3xl px-6 py-12">
@@ -241,7 +249,14 @@ export default async function PageRecherche({
         )}
       </main>
 
-      <PiedSite nomSite={site.nom} elements={navPied?.elements ?? []} />
+      <PiedSite
+        nomSite={site.nom}
+        slugSite={site.slug}
+        urlLogo={site.urlLogo}
+        elements={navPied?.elements ?? []}
+        apparence={navPied?.apparence as never}
+        reseauxSociaux={reseauxSociaux}
+      />
       <TrackerVue siteSlug={site.slug} chemin="/recherche" langue={site.langueParDefaut} />
     </div>
   );

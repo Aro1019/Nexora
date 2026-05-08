@@ -57,11 +57,71 @@ const schemaElement: z.ZodType<{
   enfants: z.lazy(() => schemaElement.array()).optional(),
 });
 
+const schemaApparenceEntete = z.object({
+  emplacement: z.literal("ENTETE"),
+  positionLiens: z.enum(["gauche", "centre", "droite"]),
+  sticky: z.boolean(),
+  transparent: z.boolean(),
+  couleurFond: z.string().max(64).optional(),
+  couleurTexte: z.string().max(64).optional(),
+  hauteur: z.enum(["compact", "normal", "grand"]),
+  afficherLogo: z.boolean(),
+  afficherRecherche: z.boolean(),
+  cta: z.object({
+    active: z.boolean(),
+    texte: z.string().max(60),
+    url: z.string().max(2000),
+    couleurFond: z.string().max(64).optional(),
+    couleurTexte: z.string().max(64).optional(),
+  }),
+});
+
+const schemaApparencePied = z.object({
+  emplacement: z.literal("PIED_DE_PAGE"),
+  nbColonnes: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  couleurFond: z.string().max(64).optional(),
+  couleurTexte: z.string().max(64).optional(),
+  afficherLogo: z.boolean(),
+  description: z.string().max(500).optional(),
+  afficherReseauxSociaux: z.boolean(),
+  texteCopyright: z.string().max(200).optional(),
+  newsletter: z.object({
+    active: z.boolean(),
+    titre: z.string().max(80).optional(),
+    placeholder: z.string().max(80).optional(),
+  }),
+  selecteurLangue: z.boolean(),
+  liensSecondaires: z
+    .array(
+      z.object({
+        id: z.string(),
+        libelle: z.string().min(1).max(80),
+        url: z.string().min(1).max(2000),
+      })
+    )
+    .max(20),
+});
+
+const schemaApparenceBarre = z.object({
+  emplacement: z.literal("BARRE_LATERALE"),
+  cote: z.enum(["gauche", "droite"]),
+  couleurFond: z.string().max(64).optional(),
+  couleurTexte: z.string().max(64).optional(),
+  largeur: z.enum(["etroite", "normale", "large"]),
+});
+
+const schemaApparence = z.discriminatedUnion("emplacement", [
+  schemaApparenceEntete,
+  schemaApparencePied,
+  schemaApparenceBarre,
+]);
+
 const schemaUpsertNavigation = z.object({
   idSite: z.string(),
   emplacement: z.enum(["ENTETE", "PIED_DE_PAGE", "BARRE_LATERALE"]),
   libelle: z.string().min(1).max(100),
   elements: schemaElement.array(),
+  apparence: schemaApparence.optional(),
 });
 
 // ─────────────────────────────────────────
@@ -126,10 +186,16 @@ export const routeurNavigations = creerRouteur({
           libelle: input.libelle,
           emplacement: input.emplacement,
           elements: JSON.parse(JSON.stringify(input.elements)),
+          apparence: input.apparence
+            ? JSON.parse(JSON.stringify(input.apparence))
+            : undefined,
         },
         update: {
           libelle: input.libelle,
           elements: JSON.parse(JSON.stringify(input.elements)),
+          ...(input.apparence !== undefined
+            ? { apparence: JSON.parse(JSON.stringify(input.apparence)) }
+            : {}),
         },
       });
 

@@ -5,7 +5,7 @@
  * Cliquer sur un bloc l'ajoute à la fin du canvas.
  */
 import { useState } from "react";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { LISTE_BLOCS, type DefinitionBloc } from "./registre";
 import type { IdTypeBloc } from "./types";
 
@@ -29,6 +29,7 @@ const ORDRE_CATEGORIES: DefinitionBloc["categorie"][] = [
 
 export function PaletteBlocs({ surAjout }: PropsPalette) {
   const [recherche, setRecherche] = useState("");
+  const [pliee, setPliee] = useState(false);
 
   const blocsFiltres = LISTE_BLOCS.filter(
     (bloc) =>
@@ -42,14 +43,67 @@ export function PaletteBlocs({ surAjout }: PropsPalette) {
     blocs: blocsFiltres.filter((b) => b.categorie === cat),
   })).filter((g) => g.blocs.length > 0);
 
+  /* ── Mode plié : barre fine avec icônes des blocs ── */
+  if (pliee) {
+    return (
+      <aside className="w-12 shrink-0 border-r border-border/40 bg-card/40 backdrop-blur-sm flex flex-col h-full">
+        <div className="flex justify-center py-2 border-b border-border/40">
+          <button
+            type="button"
+            onClick={() => setPliee(false)}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Afficher les blocs"
+            aria-label="Afficher les blocs"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2 space-y-3">
+          {blocsParCategorie.map(({ categorie, blocs }) => (
+            <div key={categorie} className="flex flex-col items-center gap-1">
+              {blocs.map((bloc) => {
+                const Icone = bloc.icone;
+                return (
+                  <button
+                    key={bloc.id}
+                    type="button"
+                    onClick={() => surAjout(bloc.id)}
+                    className="group flex h-9 w-9 items-center justify-center rounded-lg bg-sky/10 text-sky hover:bg-sky hover:text-white transition-colors"
+                    title={`${bloc.libelle} — ${bloc.description}`}
+                    aria-label={`Ajouter ${bloc.libelle}`}
+                  >
+                    <Icone className="h-4 w-4" />
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="w-72 shrink-0 border-r border-border/40 bg-card/40 backdrop-blur-sm flex flex-col h-full">
       {/* En-tête */}
       <div className="p-4 border-b border-border/40">
-        <h3 className="text-sm font-semibold text-foreground">Blocs</h3>
-        <p className="mt-0.5 text-xs text-muted-foreground/70">
-          Cliquez pour ajouter un bloc
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">Blocs</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground/70">
+              Cliquez pour ajouter un bloc
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPliee(true)}
+            className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Masquer les blocs"
+            aria-label="Masquer les blocs"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
 
         {/* Recherche */}
         <div className="relative mt-3">

@@ -125,6 +125,14 @@ export default async function PageSite({ params }: { params: Params }) {
       } as React.CSSProperties)
     : {};
 
+  /* Réseaux sociaux pour le pied de page */
+  const liensRS = (reglages?.liensReseauxSociaux as Record<string, string> | null) ?? null;
+  const reseauxSociaux = liensRS
+    ? Object.entries(liensRS)
+        .filter(([, url]) => !!url)
+        .map(([reseau, url]) => ({ reseau, url }))
+    : [];
+
   /* Cas archive : on rend la liste filtrée à la place de la page */
   if (archiveMatch) {
     const type = archiveMatch[1] as "categorie" | "etiquette";
@@ -150,11 +158,19 @@ export default async function PageSite({ params }: { params: Params }) {
           langueCourante={langue}
           langueParDefaut={site.langueParDefaut}
           cheminCourant={chemin ?? "/"}
+          apparence={navEntete?.apparence as never}
         />
         <main className="mx-auto max-w-5xl px-6 py-12">
           <VueArchive donnees={donnees} type={type} />
         </main>
-        <PiedSite nomSite={site.nom} elements={navPied?.elements ?? []} />
+        <PiedSite
+          nomSite={site.nom}
+          slugSite={site.slug}
+          urlLogo={site.urlLogo}
+          elements={navPied?.elements ?? []}
+          apparence={navPied?.apparence as never}
+          reseauxSociaux={reseauxSociaux}
+        />
         <TrackerVue
           siteSlug={site.slug}
           chemin={chemin ?? "/"}
@@ -184,6 +200,7 @@ export default async function PageSite({ params }: { params: Params }) {
         langueCourante={langue}
         langueParDefaut={site.langueParDefaut}
         cheminCourant={chemin ?? "/"}
+        apparence={navEntete?.apparence as never}
       />
 
       <main className="mx-auto max-w-5xl px-6 py-12">
@@ -198,7 +215,14 @@ export default async function PageSite({ params }: { params: Params }) {
         />
       </main>
 
-      <PiedSite nomSite={site.nom} elements={navPied?.elements ?? []} />
+      <PiedSite
+        nomSite={site.nom}
+        slugSite={site.slug}
+        urlLogo={site.urlLogo}
+        elements={navPied?.elements ?? []}
+        apparence={navPied?.apparence as never}
+        reseauxSociaux={reseauxSociaux}
+      />
       <TrackerVue
         siteSlug={site.slug}
         chemin={chemin ?? "/"}

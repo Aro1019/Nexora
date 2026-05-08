@@ -113,20 +113,22 @@ export default async function PageApercu({
       <main className="mx-auto max-w-5xl px-6 py-12">
         <header className="mb-8">
           <h1 className="text-4xl font-bold text-foreground" data-apercu-titre>
-            {titreEffectif}
+            {modeDirect ? null : titreEffectif}
           </h1>
         </header>
 
         <div data-apercu-contenu>
-          <RendreContenuPage
-            blocs={blocs}
-            contexte={{
-              idSite: site.id,
-              slugSite: site.slug,
-              langue: page.langue,
-              langueParDefaut: site.langueParDefaut,
-            }}
-          />
+          {modeDirect ? null : (
+            <RendreContenuPage
+              blocs={blocs}
+              contexte={{
+                idSite: site.id,
+                slugSite: site.slug,
+                langue: page.langue,
+                langueParDefaut: site.langueParDefaut,
+              }}
+            />
+          )}
         </div>
       </main>
 
