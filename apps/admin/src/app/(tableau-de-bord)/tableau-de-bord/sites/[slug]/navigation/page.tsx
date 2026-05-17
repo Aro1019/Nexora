@@ -26,6 +26,7 @@ import { trpc } from "@/lib/trpc";
 import {
   type ApparenceEntete,
   type ApparencePied,
+  type ApparenceNavigation,
   APPARENCE_ENTETE_DEFAUT,
   APPARENCE_PIED_DEFAUT,
 } from "@nexora/types";
@@ -133,18 +134,18 @@ export default function PageNavigations() {
   function gererSauvegarde() {
     if (!site?.id) return;
     setErreur("");
-    let apparence: ApparenceEntete | ApparencePied | undefined;
+    let apparence: ApparenceNavigation | undefined;
     if (emplacementActif === "ENTETE") {
-      apparence = { ...apparenceEntete, emplacement: "ENTETE" };
+      apparence = { emplacement: "ENTETE", ...apparenceEntete };
     } else if (emplacementActif === "PIED_DE_PAGE") {
-      apparence = { ...apparencePied, emplacement: "PIED_DE_PAGE" };
+      apparence = { emplacement: "PIED_DE_PAGE", ...apparencePied };
     }
     mutationSauvegarder.mutate({
       idSite: site.id,
       emplacement: emplacementActif,
       libelle,
       elements,
-      apparence: apparence as never,
+      apparence,
     });
   }
 

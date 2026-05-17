@@ -17,7 +17,7 @@ import {
   Loader2,
   Check,
 } from "lucide-react";
-import { clientAuth } from "@nexora/auth";
+import { clientAuth } from "@nexora/auth/client";
 
 /** Calcule la force du mot de passe (0–4) */
 function calculerForce(mdp: string): number {

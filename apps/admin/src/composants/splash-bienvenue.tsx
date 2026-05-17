@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { clientAuth } from "@nexora/auth";
+import { clientAuth } from "@nexora/auth/client";
 
 const DUREE_TOTALE_MS = 1400;
 const DESTINATION_PAR_DEFAUT = "/tableau-de-bord";

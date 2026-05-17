@@ -1,8 +1,8 @@
 /**
- * Package @nexora/auth
- * Configuration centralisée de l'authentification Better Auth.
- * Exporte la config serveur et le client navigateur.
+ * Package @nexora/auth — entrée SERVEUR uniquement.
+ * Pour le client navigateur, importer depuis "@nexora/auth/client"
+ * afin que la configuration serveur (qui lit BETTER_AUTH_SECRET et
+ * instancie Prisma) ne soit jamais embarquée dans le bundle navigateur.
  */
 export { auth, gestionnairesAuth } from "./serveur";
-export { clientAuth } from "./client";
 export type { Session, User } from "better-auth";

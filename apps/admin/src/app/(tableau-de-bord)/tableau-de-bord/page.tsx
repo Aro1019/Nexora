@@ -20,7 +20,7 @@ import {
   Activity,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { clientAuth } from "@nexora/auth";
+import { clientAuth } from "@nexora/auth/client";
 
 /** Hook pour animer un compteur de 0 vers la valeur cible */
 function useCompteurAnime(valeurCible: number, duree = 1000): number {

@@ -27,7 +27,6 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@nexora/ui";
-import { LogoNexora } from "./logo-nexora";
 
 /** Éléments de navigation du tableau de bord */
 const ELEMENTS_NAVIGATION = [
@@ -125,20 +124,13 @@ export function BarreLaterale({
               title={estReplie ? "Nexora" : undefined}
             >
               {estReplie ? (
-                <LogoNexora
-                  taille={44}
-                  avecHalo
-                  className="group-hover:scale-105 transition-transform duration-300"
-                />
+                <span className="text-2xl font-bold tracking-tight text-white transition-transform duration-300 group-hover:scale-105">
+                  N
+                </span>
               ) : (
-                <LogoNexora
-                  taille={64}
-                  avecHalo
-                  avecTexte
-                  couleurTexte="text-white"
-                  classeTexte="text-xl font-bold tracking-tight"
-                  className="group-hover:scale-[1.02] transition-transform duration-300"
-                />
+                <span className="text-xl font-bold tracking-tight text-white transition-transform duration-300 group-hover:scale-[1.02]">
+                  Nexora
+                </span>
               )}
             </Link>
             {!estReplie && !forcerDeplie && (

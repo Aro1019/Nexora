@@ -101,6 +101,10 @@ const schemaModificationPage = z.object({
   planifieLe: z.string().datetime().optional().nullable(),
   idsCategories: z.array(z.string()).optional(),
   idsEtiquettes: z.array(z.string()).optional(),
+  /** Si true, publie la page après la modification (raccourci sauvegarder+publier). */
+  publierApres: z.boolean().optional(),
+  /** Note optionnelle attachée à la version créée lors de la publication. */
+  notePublication: z.string().max(500).optional(),
 });
 
 // ─────────────────────────────────────────

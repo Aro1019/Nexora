@@ -30,6 +30,9 @@ services:
     environment:
       MINIO_ROOT_USER: nexora
       MINIO_ROOT_PASSWORD: nexora_dev
+      # CORS — autoriser les uploads présignés depuis les apps Next en local.
+      # En production, remplacer "*" par la liste des origines réelles.
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
     volumes:
       - minio-data:/data
 

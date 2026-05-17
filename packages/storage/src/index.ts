@@ -8,6 +8,7 @@ import {
   DeleteObjectCommand,
   HeadBucketCommand,
   CreateBucketCommand,
+  PutBucketPolicyCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -41,17 +42,52 @@ export const NOM_BUCKET = S3_BUCKET;
 
 let bucketInitialise = false;
 
-/** Crée le bucket s'il n'existe pas encore */
+/**
+ * Policy IAM qui autorise la lecture publique (`s3:GetObject`) de tous
+ * les objets du bucket. Les médias d'un CMS sont par nature accessibles
+ * sur le web public ; les opérations d'écriture restent protégées par
+ * les URLs présignées générées côté serveur.
+ */
+function policyLecturePublique(nomBucket: string): string {
+  return JSON.stringify({
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Sid: "PublicReadGetObject",
+        Effect: "Allow",
+        Principal: { AWS: ["*"] },
+        Action: ["s3:GetObject"],
+        Resource: [`arn:aws:s3:::${nomBucket}/*`],
+      },
+    ],
+  });
+}
+
+/** Crée le bucket s'il n'existe pas encore et garantit l'accès public en lecture. */
 export async function initialiserBucket(): Promise<void> {
   if (bucketInitialise) return;
 
   try {
     await clientS3.send(new HeadBucketCommand({ Bucket: NOM_BUCKET }));
-    bucketInitialise = true;
   } catch {
     await clientS3.send(new CreateBucketCommand({ Bucket: NOM_BUCKET }));
-    bucketInitialise = true;
   }
+
+  /* Toujours (ré)appliquer la policy de lecture publique. Idempotent. */
+  try {
+    await clientS3.send(
+      new PutBucketPolicyCommand({
+        Bucket: NOM_BUCKET,
+        Policy: policyLecturePublique(NOM_BUCKET),
+      })
+    );
+  } catch (erreur) {
+    /* Ne pas bloquer l'init si la policy échoue (ex: permissions
+       restreintes en prod où la policy est gérée par l'infra). */
+    console.warn("[storage] Impossible d'appliquer la bucket policy :", erreur);
+  }
+
+  bucketInitialise = true;
 }
 
 // ─────────────────────────────────────────

@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { clientAuth } from "@nexora/auth";
+import { clientAuth } from "@nexora/auth/client";
 import { BarreLaterale } from "./barre-laterale";
 import { EnTete } from "./en-tete";
 

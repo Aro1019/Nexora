@@ -7,7 +7,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2 } from "lucide-react";
-import { clientAuth } from "@nexora/auth";
+import { clientAuth } from "@nexora/auth/client";
 
 function FormulaireConnexion() {
   const routeur = useRouter();
@@ -63,13 +63,13 @@ function FormulaireConnexion() {
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-nexora-blue text-white font-bold">
             N
           </div>
-          <span className="text-lg font-semibold text-midnight">Nexora</span>
+          <span className="text-lg font-semibold text-white">Nexora</span>
         </div>
 
-        <h1 className="text-2xl font-semibold tracking-tight text-midnight">
+        <h1 className="text-2xl font-semibold tracking-tight text-white">
           Connexion
         </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
+        <p className="mt-1.5 text-sm text-frost/70">
           Bon retour. Connectez-vous pour continuer.
         </p>
       </div>
@@ -85,7 +85,7 @@ function FormulaireConnexion() {
 
         {/* Email */}
         <div>
-          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-foreground">
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-frost">
             Adresse email
           </label>
           <div className="relative">
@@ -107,7 +107,7 @@ function FormulaireConnexion() {
         {/* Mot de passe */}
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label htmlFor="mot-de-passe" className="text-sm font-medium text-foreground">
+            <label htmlFor="mot-de-passe" className="text-sm font-medium text-frost">
               Mot de passe
             </label>
             <Link
