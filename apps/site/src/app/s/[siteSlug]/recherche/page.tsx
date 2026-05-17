@@ -17,7 +17,8 @@ import { PiedSite } from "@/composants/pied-site";
 import { TrackerVue } from "@/composants/tracker-vue";
 import * as React from "react";
 
-export const dynamic = "force-dynamic";
+/** Pages de recherche : cache court (les requêtes varient par ?q=). */
+export const revalidate = 30;
 
 type Params = Promise<{ siteSlug: string }>;
 type SearchParams = Promise<{ q?: string; type?: string; lang?: string }>;

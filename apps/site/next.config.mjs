@@ -8,6 +8,9 @@ const nextConfig = {
       { protocol: "http", hostname: "localhost" },
     ],
   },
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
 };
 
 export default nextConfig;

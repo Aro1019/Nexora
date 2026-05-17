@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { clientAuth } from "@nexora/auth";
 
-const DUREE_TOTALE_MS = 2900;
+const DUREE_TOTALE_MS = 1400;
 const DESTINATION_PAR_DEFAUT = "/tableau-de-bord";
 
 export function SplashBienvenue() {
@@ -42,78 +42,38 @@ export function SplashBienvenue() {
   useEffect(() => {
     const minuteur = window.setTimeout(() => {
       routeur.replace(suivant);
-      routeur.refresh();
     }, DUREE_TOTALE_MS);
     return () => window.clearTimeout(minuteur);
   }, [routeur, suivant]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden animate-splash-fade-out">
-      {/* Fond gradient animé */}
+      {/* Fond gradient statique */}
       <div
-        className="absolute inset-0 animate-gradient-shift"
+        className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(135deg, #06182E 0%, #0D2B4A 25%, #185FA5 50%, #0D2B4A 75%, #06182E 100%)",
-          backgroundSize: "400% 400%",
+            "linear-gradient(135deg, #06182E 0%, #0D2B4A 50%, #185FA5 100%)",
         }}
       />
 
-      {/* Bruit subtil */}
-      <div
-        className="absolute inset-0 opacity-[0.04]"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-        }}
-        aria-hidden
-      />
-
-      {/* Orbes lumineuses */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-nexora-blue/30 blur-[100px] animate-glow-pulse" aria-hidden />
-      <div
-        className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-sky/25 blur-[80px] animate-glow-pulse"
-        style={{ animationDelay: "1s" }}
-        aria-hidden
-      />
-      <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-teal/20 blur-[60px] animate-glow-pulse"
-        style={{ animationDelay: "2s" }}
-        aria-hidden
-      />
-
-      {/* Lignes orbitales */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" aria-hidden>
-        <div className="w-[500px] h-[500px] rounded-full border border-white/[0.05] animate-orbit" />
-      </div>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" aria-hidden>
-        <div className="w-[700px] h-[700px] rounded-full border border-white/[0.03] animate-orbit-reverse" />
-      </div>
+      {/* Une seule orbe lumineuse légère */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-nexora-blue/30 blur-[80px]" aria-hidden />
 
       {/* ── Contenu central ── */}
       <div className="relative flex flex-col items-center text-center px-6">
-        {/* Logo + halos animés */}
+        {/* Logo + halo léger */}
         <div className="relative mb-8">
-          {/* Anneaux concentriques pulsants */}
+          {/* Un seul anneau pulsant */}
           <span
             aria-hidden
             className="absolute inset-0 rounded-full border-2 border-sky/40 animate-splash-ring"
           />
-          <span
-            aria-hidden
-            className="absolute inset-0 rounded-full border-2 border-teal/30 animate-splash-ring"
-            style={{ animationDelay: "0.6s" }}
-          />
-          <span
-            aria-hidden
-            className="absolute inset-0 rounded-full border border-frost/40 animate-splash-ring"
-            style={{ animationDelay: "1.2s" }}
-          />
 
-          {/* Halo lumineux derrière le logo */}
+          {/* Halo lumineux derrière le logo (statique) */}
           <span
             aria-hidden
-            className="absolute -inset-6 rounded-full bg-gradient-to-br from-sky via-nexora-blue to-teal opacity-50 blur-2xl animate-glow-pulse"
+            className="absolute -inset-6 rounded-full bg-gradient-to-br from-sky via-nexora-blue to-teal opacity-40 blur-2xl"
           />
 
           {/* Logo */}

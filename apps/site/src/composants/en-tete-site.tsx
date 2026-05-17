@@ -75,7 +75,7 @@ export function EnTeteSite({
     ? "bg-transparent border-transparent"
     : a.couleurFond
       ? ""
-      : "bg-background/80 backdrop-blur-md border-border";
+      : "bg-background border-border";
   const paddingY =
     a.hauteur === "compact" ? "py-2" : a.hauteur === "grand" ? "py-6" : "py-4";
   const positionClasse =
@@ -142,7 +142,7 @@ export function EnTeteSite({
                 value={requete}
                 onChange={(e) => setRequete(e.target.value)}
                 placeholder="Rechercher…"
-                className="rounded-md border border-input bg-background/60 backdrop-blur pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-44"
+                className="rounded-md border border-input bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-44"
               />
             </div>
           </form>

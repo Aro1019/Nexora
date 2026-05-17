@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
+    "dev:admin": "turbo dev --filter=@nexora/admin",
+    "dev:site": "turbo dev --filter=@nexora/site",
     "build": "turbo build",
     "lint": "turbo lint",
     "db:generate": "turbo db:generate",

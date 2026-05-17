@@ -26,8 +26,8 @@ type Params = Promise<{
   cheminPage?: string[];
 }>;
 
-/** Force le rendu dynamique (lecture DB à chaque requête en MVP). */
-export const dynamic = "force-dynamic";
+/** ISR : page mise en cache 60s, régénérée à la demande. */
+export const revalidate = 60;
 
 /**
  * Sépare la langue (préfixe) du chemin de page parmi les segments d'URL.

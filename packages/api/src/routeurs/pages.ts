@@ -355,8 +355,12 @@ export const routeurPages = creerRouteur({
       /* Les jonctions cat/étiq sont gérées à part (delete + create) */
       const idsCategories = donneesFinales.idsCategories as string[] | undefined;
       const idsEtiquettes = donneesFinales.idsEtiquettes as string[] | undefined;
+      const publierApres = donneesFinales.publierApres as boolean | undefined;
+      const notePublication = donneesFinales.notePublication as string | undefined;
       delete donneesFinales.idsCategories;
       delete donneesFinales.idsEtiquettes;
+      delete donneesFinales.publierApres;
+      delete donneesFinales.notePublication;
 
       const page = await ctx.db.page.update({
         where: { id },
@@ -438,6 +442,65 @@ export const routeurPages = creerRouteur({
           metadonnees: donnees,
         },
       });
+
+      /* Publication intégrée (évite un aller-retour supplémentaire) */
+      if (publierApres) {
+        const dernieres = await ctx.db.versionPage.findMany({
+          where: { idPage: id },
+          orderBy: { version: "desc" },
+          take: 1,
+          select: { version: true },
+        });
+        const prochainNumero = (dernieres[0]?.version ?? 0) + 1;
+
+        const versionPubliee = await ctx.db.versionPage.create({
+          data: {
+            idPage: id,
+            version: prochainNumero,
+            contenu: (donnees.contenu ?? pageExistante.contenu) as object,
+            titre: donnees.titre ?? pageExistante.titre,
+            titreMeta: donnees.titreMeta ?? pageExistante.titreMeta,
+            descriptionMeta: donnees.descriptionMeta ?? pageExistante.descriptionMeta,
+            creePar: ctx.utilisateur.id,
+            note: notePublication,
+          },
+        });
+
+        const pagePubliee = await ctx.db.page.update({
+          where: { id },
+          data: {
+            statut: "PUBLIE",
+            idVersionPubliee: versionPubliee.id,
+            publieLe: page.publieLe ?? new Date(),
+          },
+        });
+
+        await ctx.db.journalAudit.create({
+          data: {
+            idSite,
+            idUtilisateur: ctx.utilisateur.id,
+            action: "page.publiee",
+            typeRessource: "page",
+            idRessource: id,
+            metadonnees: { version: prochainNumero, note: notePublication },
+          },
+        });
+
+        declencherEvenementWebhook({
+          db: ctx.db,
+          idSite,
+          evenement: "page.publiee",
+          charge: {
+            id_page: id,
+            slug: pagePubliee.slug,
+            titre: pagePubliee.titre,
+            version: prochainNumero,
+            publie_le: pagePubliee.publieLe?.toISOString() ?? null,
+          },
+        });
+
+        return pagePubliee;
+      }
 
       return page;
     }),

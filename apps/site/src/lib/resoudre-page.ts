@@ -1,7 +1,12 @@
 /**
  * Résolution de site et de pages publiées pour le rendu public.
  * Les fonctions sont des Server Components / Server Actions friendly.
+ *
+ * Chaque fonction est enveloppée dans `React.cache` pour dédupliquer les
+ * requêtes au sein d'une même requête HTTP (ex : `generateMetadata` +
+ * composant page appellent tous les deux `resoudreSiteParSlug`).
  */
+import { cache } from "react";
 import { db } from "@nexora/db";
 
 /** Résultat de la résolution d'un site */
@@ -13,7 +18,7 @@ export type SiteResolu = NonNullable<
  * Récupère un site publié par son slug.
  * Retourne null si le site n'existe pas ou est en BROUILLON/ARCHIVE.
  */
-export async function resoudreSiteParSlug(slug: string) {
+export const resoudreSiteParSlug = cache(async (slug: string) => {
   const site = await db.site.findUnique({
     where: { slug },
     include: {
@@ -25,7 +30,7 @@ export async function resoudreSiteParSlug(slug: string) {
   if (site.statut === "ARCHIVE") return null;
 
   return site;
-}
+});
 
 /**
  * Récupère un site par son domaine personnalisé.
@@ -59,48 +64,49 @@ export interface ContenuPagePublie {
  * Récupère la page d'accueil publiée d'un site.
  * Recherche par typePage = ACCUEIL en priorité, sinon par slug "accueil".
  */
-export async function resoudrePageAccueil(
-  idSite: string,
-  langue = "fr"
-): Promise<ContenuPagePublie | null> {
-  const page = await db.page.findFirst({
-    where: {
-      idSite,
-      langue,
-      statut: "PUBLIE",
-      typePage: "ACCUEIL",
-    },
-    include: { versionPubliee: true },
-  });
+export const resoudrePageAccueil = cache(
+  async (idSite: string, langue = "fr"): Promise<ContenuPagePublie | null> => {
+    const page = await db.page.findFirst({
+      where: {
+        idSite,
+        langue,
+        statut: "PUBLIE",
+        typePage: "ACCUEIL",
+      },
+      include: { versionPubliee: true },
+    });
 
-  if (!page) return null;
-  return formaterPagePubliee(page);
-}
+    if (!page) return null;
+    return formaterPagePubliee(page);
+  }
+);
 
 /**
  * Récupère une page publiée par son chemin (sans la langue).
  * Le chemin correspond au champ `chemin` de la base, ex: "/a-propos".
  */
-export async function resoudrePageParChemin(
-  idSite: string,
-  chemin: string,
-  langue = "fr"
-): Promise<ContenuPagePublie | null> {
-  const cheminNormalise = chemin.startsWith("/") ? chemin : `/${chemin}`;
+export const resoudrePageParChemin = cache(
+  async (
+    idSite: string,
+    chemin: string,
+    langue = "fr"
+  ): Promise<ContenuPagePublie | null> => {
+    const cheminNormalise = chemin.startsWith("/") ? chemin : `/${chemin}`;
 
-  const page = await db.page.findFirst({
-    where: {
-      idSite,
-      langue,
-      statut: "PUBLIE",
-      chemin: cheminNormalise,
-    },
-    include: { versionPubliee: true },
-  });
+    const page = await db.page.findFirst({
+      where: {
+        idSite,
+        langue,
+        statut: "PUBLIE",
+        chemin: cheminNormalise,
+      },
+      include: { versionPubliee: true },
+    });
 
-  if (!page) return null;
-  return formaterPagePubliee(page);
-}
+    if (!page) return null;
+    return formaterPagePubliee(page);
+  }
+);
 
 /**
  * Construit la représentation de rendu d'une page publiée.

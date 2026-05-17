@@ -13,6 +13,11 @@
   --color-white-ice: #F7FAFD;
   --color-teal: #5DCAA5;
 
+  /* Couleurs neutres standard (assure que text-white / bg-white / border-white
+     restent disponibles même avec un bloc @theme personnalisé) */
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+
   /* ==============================
    * Couleurs sémantiques
    * ============================== */

@@ -12,12 +12,10 @@ import { resolve } from "path";
 function chargerEnv() {
   if (!process.env.DATABASE_URL) {
     const cheminEnv = resolve(process.cwd(), ".env");
-    console.log("[nexora/db] DATABASE_URL manquant, chargement depuis:", cheminEnv);
     const resultat = config({ path: cheminEnv });
-    console.log("[nexora/db] dotenv résultat:", resultat.error ? resultat.error.message : "OK");
-    console.log("[nexora/db] DATABASE_URL après chargement:", process.env.DATABASE_URL ? "défini" : "TOUJOURS MANQUANT");
-  } else {
-    console.log("[nexora/db] DATABASE_URL déjà défini");
+    if (process.env.NEXORA_DB_DEBUG === "1") {
+      console.log("[nexora/db] dotenv:", resultat.error ? resultat.error.message : "OK");
+    }
   }
 }
 
@@ -42,7 +40,7 @@ function creerClient(): PrismaClient {
   const client = new PrismaClient({
     datasourceUrl: process.env.DATABASE_URL,
     log:
-      process.env.NODE_ENV === "development"
+      process.env.NEXORA_DB_DEBUG === "1"
         ? ["query", "error", "warn"]
         : ["error"],
   });

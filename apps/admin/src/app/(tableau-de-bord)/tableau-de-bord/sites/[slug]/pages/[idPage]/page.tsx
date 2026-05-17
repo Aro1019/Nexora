@@ -95,24 +95,36 @@ export default function PageEditionPage() {
     { enabled: !!site?.id }
   );
 
-  /* Mutation sauvegarder */
+  /* Mutation sauvegarder (avec option publication intégrée) */
   const mutationModifier = trpc.pages.modifier.useMutation({
-    onSuccess: () => {
-      utils.pages.obtenir.invalidate({ id: params.idPage, idSite: site?.id ?? "" });
-      utils.pages.lister.invalidate({ idSite: site?.id ?? "" });
+    onSuccess: (pageMaj, variables) => {
+      /* MAJ optimiste du cache pour éviter un refetch complet */
+      if (site?.id) {
+        utils.pages.obtenir.setData(
+          { id: params.idPage, idSite: site.id },
+          (ancien) => (ancien ? { ...ancien, ...pageMaj } : ancien)
+        );
+        /* Invalidation de la liste en arrière-plan (pas await) */
+        utils.pages.lister.invalidate({ idSite: site.id });
+      }
       setModifie(false);
       setErreur("");
-      setMessageSucces("Page sauvegardée !");
+      setMessageSucces(variables.publierApres ? "Page publiée !" : "Page sauvegardée !");
       setTimeout(() => setMessageSucces(""), 3000);
     },
     onError: (err) => setErreur(err.message),
   });
 
-  /* Mutation publier */
+  /* Conservée pour usages externes (republier sans modifier) */
   const mutationPublier = trpc.pages.publier.useMutation({
-    onSuccess: () => {
-      utils.pages.obtenir.invalidate({ id: params.idPage, idSite: site?.id ?? "" });
-      utils.pages.lister.invalidate({ idSite: site?.id ?? "" });
+    onSuccess: (pageMaj) => {
+      if (site?.id) {
+        utils.pages.obtenir.setData(
+          { id: params.idPage, idSite: site.id },
+          (ancien) => (ancien ? { ...ancien, ...pageMaj } : ancien)
+        );
+        utils.pages.lister.invalidate({ idSite: site.id });
+      }
       setModifie(false);
       setErreur("");
       setMessageSucces("Page publiée !");
@@ -152,34 +164,24 @@ export default function PageEditionPage() {
     });
   }
 
-  /** Publier */
+  /** Publier (sauvegarde + publication en UN seul aller-retour) */
   function gererPublication() {
     if (!site?.id || !page) return;
     setErreur("");
-    /* Sauvegarder d'abord, puis publier */
-    mutationModifier.mutate(
-      {
-        id: page.id,
-        idSite: site.id,
-        titre,
-        slug: slugPage,
-        contenu,
-        titreMeta: titreMeta || null,
-        descriptionMeta: descriptionMeta || null,
-        extrait: extrait || null,
-        nonIndexe,
-        idsCategories,
-        idsEtiquettes,
-      },
-      {
-        onSuccess: () => {
-          mutationPublier.mutate({
-            id: page.id,
-            idSite: site!.id,
-          });
-        },
-      }
-    );
+    mutationModifier.mutate({
+      id: page.id,
+      idSite: site.id,
+      titre,
+      slug: slugPage,
+      contenu,
+      titreMeta: titreMeta || null,
+      descriptionMeta: descriptionMeta || null,
+      extrait: extrait || null,
+      nonIndexe,
+      idsCategories,
+      idsEtiquettes,
+      publierApres: true,
+    });
   }
 
   /** Marquer comme modifié */

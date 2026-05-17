@@ -5,7 +5,8 @@
 import Link from "next/link";
 import { db } from "@nexora/db";
 
-export const dynamic = "force-dynamic";
+/** ISR 60s pour la home dev (liste des sites). */
+export const revalidate = 60;
 
 export default async function PageIndex() {
   const sites = await db.site.findMany({
