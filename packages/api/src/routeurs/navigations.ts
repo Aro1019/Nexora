@@ -74,6 +74,40 @@ const schemaApparenceEntete = z.object({
     couleurFond: z.string().max(64).optional(),
     couleurTexte: z.string().max(64).optional(),
   }),
+  // V1
+  largeurConteneur: z.enum(["pleine", "large", "normale", "etroite"]).optional(),
+  espacementLiens: z.enum(["compact", "normal", "aere"]).optional(),
+  styleLiens: z.enum(["minimal", "souligne", "pilule", "fantome"]).optional(),
+  indicateurActif: z.enum(["aucun", "souligne", "point", "barre-haut", "fond"]).optional(),
+  couleurLienHover: z.string().max(64).optional(),
+  couleurLienActif: z.string().max(64).optional(),
+  ombre: z.enum(["aucune", "fine", "moyenne", "forte"]).optional(),
+  bordureBas: z.enum(["aucune", "fine", "epaisse"]).optional(),
+  couleurBordureBas: z.string().max(64).optional(),
+  // V2
+  comportementScroll: z.enum(["fixe", "reduit", "auto-cache"]).optional(),
+  seuilScroll: z.number().int().min(0).max(2000).optional(),
+  couleurFondScroll: z.string().max(64).optional(),
+  couleurTexteScroll: z.string().max(64).optional(),
+  bandeau: z
+    .object({
+      active: z.boolean(),
+      texte: z.string().max(280),
+      lien: z.string().max(2000).optional(),
+      couleurFond: z.string().max(64).optional(),
+      couleurTexte: z.string().max(64).optional(),
+      fermable: z.boolean().optional(),
+    })
+    .optional(),
+  // V3
+  positionLogo: z.enum(["gauche", "centre", "droite"]).optional(),
+  tailleLogo: z.enum(["S", "M", "L", "XL"]).optional(),
+  afficherNomSite: z.boolean().optional(),
+  policeNomSite: z.enum(["heritee", "sans", "serif", "mono"]).optional(),
+  urlLogoAlt: z.string().max(2000).optional(),
+  liensMajuscules: z.boolean().optional(),
+  graisseLiens: z.enum(["normale", "medium", "semi", "bold"]).optional(),
+  policeLiens: z.enum(["heritee", "sans", "serif", "mono"]).optional(),
 });
 
 const schemaApparencePied = z.object({

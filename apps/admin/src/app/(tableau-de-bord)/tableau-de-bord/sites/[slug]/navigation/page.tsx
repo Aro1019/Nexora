@@ -73,6 +73,7 @@ export default function PageNavigations() {
   const [nouveauLibelle, setNouveauLibelle] = useState("");
   const [nouveauType, setNouveauType] = useState<"page" | "url">("url");
   const [nouvelleUrl, setNouvelleUrl] = useState("");
+  const [nouvelleIdPage, setNouvelleIdPage] = useState<string>("");
 
   /* Récupérer le site */
   const { data: site } = trpc.sites.obtenir.useQuery(
@@ -152,48 +153,60 @@ export default function PageNavigations() {
   /** Ajouter un élément */
   function ajouterElement() {
     if (!nouveauLibelle.trim()) return;
+    if (nouveauType === "page" && !nouvelleIdPage) {
+      setErreur("Veuillez sélectionner une page.");
+      return;
+    }
 
     const nouvel: ElementMenu = {
       id: genererIdCourt(),
       libelle: nouveauLibelle,
       type: nouveauType,
       url: nouveauType === "url" ? nouvelleUrl : undefined,
+      idPage: nouveauType === "page" ? nouvelleIdPage : undefined,
       ouvrirNouvelOnglet: false,
       enfants: [],
     };
 
-    setElements([...elements, nouvel]);
+    setElements((prev) => [...prev, nouvel]);
+    setElementOuvert(nouvel.id);
     setNouveauLibelle("");
     setNouvelleUrl("");
+    setNouvelleIdPage("");
+    setErreur("");
   }
 
   /** Supprimer un élément */
   function supprimerElement(id: string) {
-    setElements(elements.filter((e) => e.id !== id));
+    setElements((prev) => prev.filter((e) => e.id !== id));
     if (elementOuvert === id) setElementOuvert(null);
   }
 
   /** Modifier un élément */
   function modifierElement(id: string, modifications: Partial<ElementMenu>) {
-    setElements(
-      elements.map((e) => (e.id === id ? { ...e, ...modifications } : e))
+    setElements((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...modifications } : e))
     );
   }
 
   /** Déplacer un élément vers le haut */
   function monter(index: number) {
     if (index === 0) return;
-    const copie = [...elements];
-    [copie[index - 1], copie[index]] = [copie[index], copie[index - 1]];
-    setElements(copie);
+    setElements((prev) => {
+      const copie = [...prev];
+      [copie[index - 1], copie[index]] = [copie[index], copie[index - 1]];
+      return copie;
+    });
   }
 
   /** Déplacer un élément vers le bas */
   function descendre(index: number) {
-    if (index >= elements.length - 1) return;
-    const copie = [...elements];
-    [copie[index], copie[index + 1]] = [copie[index + 1], copie[index]];
-    setElements(copie);
+    setElements((prev) => {
+      if (index >= prev.length - 1) return prev;
+      const copie = [...prev];
+      [copie[index], copie[index + 1]] = [copie[index + 1], copie[index]];
+      return copie;
+    });
   }
 
   const roleCourant = site?.roleCourant ?? "LECTEUR";
@@ -299,7 +312,8 @@ export default function PageNavigations() {
                             elementOuvert === element.id ? null : element.id
                           )
                         }
-                        className="flex-1 flex items-center gap-2 text-left min-w-0"
+                        className="flex-1 flex items-center gap-2 text-left min-w-0 hover:bg-muted/40 rounded px-1 -mx-1 py-0.5 transition-colors"
+                        title="Cliquez pour modifier"
                       >
                         {element.type === "url" ? (
                           <LinkIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -312,6 +326,11 @@ export default function PageNavigations() {
                         {element.type === "url" && element.url && (
                           <span className="text-xs text-muted-foreground truncate hidden sm:inline">
                             {element.url}
+                          </span>
+                        )}
+                        {element.type === "page" && !element.idPage && (
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-destructive shrink-0">
+                            Page manquante
                           </span>
                         )}
                         {elementOuvert === element.id ? (
@@ -371,6 +390,30 @@ export default function PageNavigations() {
                               onChange={(e) => modifierElement(element.id, { url: e.target.value })}
                               className="w-full rounded-md border border-input bg-white px-2.5 py-1.5 text-sm text-foreground"
                             />
+                          </div>
+                        )}
+                        {element.type === "page" && (
+                          <div>
+                            <label className="block text-xs text-muted-foreground mb-1">Page</label>
+                            <select
+                              value={element.idPage ?? ""}
+                              onChange={(e) =>
+                                modifierElement(element.id, { idPage: e.target.value || undefined })
+                              }
+                              className="w-full rounded-md border border-input bg-white px-2.5 py-1.5 text-sm text-foreground"
+                            >
+                              <option value="">Sélectionner…</option>
+                              {pages?.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.titre} ({p.chemin})
+                                </option>
+                              ))}
+                            </select>
+                            {!element.idPage && (
+                              <p className="mt-1 text-xs text-destructive">
+                                Aucune page rattachée — ce lien sera ignoré sur le site.
+                              </p>
+                            )}
                           </div>
                         )}
                         <div className="flex items-center gap-2">
@@ -467,8 +510,11 @@ export default function PageNavigations() {
                     </label>
                     <select
                       id="select-page"
+                      value={nouvelleIdPage}
                       onChange={(e) => {
-                        const page = pages?.find((p) => p.id === e.target.value);
+                        const id = e.target.value;
+                        setNouvelleIdPage(id);
+                        const page = pages?.find((p) => p.id === id);
                         if (page) {
                           setNouveauLibelle(page.titre);
                           setNouvelleUrl(page.chemin);

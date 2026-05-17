@@ -76,6 +76,91 @@ export interface ApparenceEntete {
   afficherLogo: boolean;
   afficherRecherche: boolean;
   cta: BoutonCTA;
+
+  // ───── V1 : Essentiels (mise en page, style des liens, finitions) ─────
+
+  /** Largeur du conteneur central. `pleine` = 100 %, sinon contraint. */
+  largeurConteneur?: "pleine" | "large" | "normale" | "etroite";
+
+  /** Espacement horizontal entre les liens du menu. */
+  espacementLiens?: "compact" | "normal" | "aere";
+
+  /** Style visuel des liens. */
+  styleLiens?: "minimal" | "souligne" | "pilule" | "fantome";
+
+  /** Indicateur visuel de la page active. */
+  indicateurActif?: "aucun" | "souligne" | "point" | "barre-haut" | "fond";
+
+  /** Couleur du texte d'un lien au survol (CSS hex/rgb/var). */
+  couleurLienHover?: string;
+
+  /** Couleur du texte d'un lien lorsqu'il correspond à la page courante. */
+  couleurLienActif?: string;
+
+  /** Ombre portée sous l'en-tête. */
+  ombre?: "aucune" | "fine" | "moyenne" | "forte";
+
+  /** Bordure inférieure. */
+  bordureBas?: "aucune" | "fine" | "epaisse";
+
+  /** Couleur de la bordure inférieure (si bordureBas != "aucune"). */
+  couleurBordureBas?: string;
+
+  // ───── V2 : Comportement au scroll & bandeau d'annonce ─────
+
+  /**
+   * Comportement de l'en-tête quand `sticky` est actif.
+   * - `fixe` : reste tel quel
+   * - `reduit` : se compacte (padding réduit, éventuellement nouvelle couleur)
+   * - `auto-cache` : se cache au scroll vers le bas, réapparaît vers le haut
+   */
+  comportementScroll?: "fixe" | "reduit" | "auto-cache";
+
+  /** Seuil en pixels avant déclenchement du comportement scroll. */
+  seuilScroll?: number;
+
+  /** Couleur de fond appliquée une fois scrollé (mode transparent ou réduit). */
+  couleurFondScroll?: string;
+
+  /** Couleur de texte appliquée une fois scrollé. */
+  couleurTexteScroll?: string;
+
+  /** Bandeau d'annonce affiché au-dessus de l'en-tête. */
+  bandeau?: {
+    active: boolean;
+    texte: string;
+    lien?: string;
+    couleurFond?: string;
+    couleurTexte?: string;
+    /** Si vrai, affiche un bouton de fermeture (mémorisé en localStorage). */
+    fermable?: boolean;
+  };
+
+  // ───── V3 : Logo & typographie ─────
+
+  /** Position du logo dans l'en-tête. */
+  positionLogo?: "gauche" | "centre" | "droite";
+
+  /** Taille du logo (icône + nom). */
+  tailleLogo?: "S" | "M" | "L" | "XL";
+
+  /** Afficher le nom du site à côté du logo. */
+  afficherNomSite?: boolean;
+
+  /** Famille de police pour le nom du site. */
+  policeNomSite?: "heritee" | "sans" | "serif" | "mono";
+
+  /** URL d'un logo alternatif utilisé une fois scrollé (ex. version foncée). */
+  urlLogoAlt?: string;
+
+  /** Liens du menu affichés en MAJUSCULES. */
+  liensMajuscules?: boolean;
+
+  /** Graisse typographique des liens. */
+  graisseLiens?: "normale" | "medium" | "semi" | "bold";
+
+  /** Famille de police des liens. */
+  policeLiens?: "heritee" | "sans" | "serif" | "mono";
 }
 
 /** Apparence visuelle d'un pied de page de site */
@@ -126,6 +211,28 @@ export const APPARENCE_ENTETE_DEFAUT: ApparenceEntete = {
     texte: "Commencer",
     url: "/",
   },
+
+  // V1
+  largeurConteneur: "normale",
+  espacementLiens: "normal",
+  styleLiens: "minimal",
+  indicateurActif: "souligne",
+  ombre: "aucune",
+  bordureBas: "fine",
+
+  // V2
+  comportementScroll: "fixe",
+  seuilScroll: 8,
+  bandeau: { active: false, texte: "", fermable: true },
+
+  // V3
+  positionLogo: "gauche",
+  tailleLogo: "M",
+  afficherNomSite: true,
+  policeNomSite: "heritee",
+  liensMajuscules: false,
+  graisseLiens: "medium",
+  policeLiens: "heritee",
 };
 
 /** Valeurs par défaut pour l'apparence d'un pied de page */

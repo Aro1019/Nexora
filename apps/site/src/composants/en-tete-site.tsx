@@ -45,17 +45,54 @@ export function EnTeteSite({
   const [menuLangueOuvert, setMenuLangueOuvert] = useState(false);
   const [requete, setRequete] = useState("");
   const [scrolle, setScrolle] = useState(false);
+  const [cache, setCache] = useState(false);
+  const [bandeauFerme, setBandeauFerme] = useState(false);
 
   const a: ApparenceEntete = { ...APPARENCE_ENTETE_DEFAUT, ...(apparence ?? {}) };
+  const seuil = Math.max(0, a.seuilScroll ?? 8);
+  const comportement = a.comportementScroll ?? "fixe";
+  const aBesoinScroll =
+    a.transparent ||
+    a.sticky && (comportement !== "fixe" || !!a.couleurFondScroll || !!a.couleurTexteScroll);
 
-  /* Suivi du scroll pour le mode transparent */
+  /* Suivi du scroll : flag «scrollé» + détection de direction pour l'auto-cache */
   useEffect(() => {
-    if (!a.transparent) return;
-    const onScroll = () => setScrolle(window.scrollY > 8);
+    if (!aBesoinScroll) return;
+    let dernierY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolle(y > seuil);
+      if (a.sticky && comportement === "auto-cache") {
+        const versLeBas = y > dernierY;
+        /* On cache uniquement quand on descend ET qu'on a dépassé le seuil */
+        if (versLeBas && y > seuil + 40) setCache(true);
+        else if (!versLeBas) setCache(false);
+      } else if (cache) {
+        setCache(false);
+      }
+      dernierY = y;
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [a.transparent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aBesoinScroll, seuil, comportement, a.sticky]);
+
+  /* Mémorisation de la fermeture du bandeau (clé dérivée du texte) */
+  const bandeau = a.bandeau;
+  const cleBandeau = bandeau?.active && bandeau.texte
+    ? `nexora:bandeau:${slugSite}:${bandeau.texte.slice(0, 50)}`
+    : null;
+  useEffect(() => {
+    if (!cleBandeau) return;
+    try {
+      if (window.localStorage.getItem(cleBandeau) === "ferme") {
+        setBandeauFerme(true);
+      }
+    } catch {
+      /* localStorage indisponible : on ignore */
+    }
+  }, [cleBandeau]);
 
   /** Construit l'URL pour basculer dans une autre langue */
   function urlPourLangue(code: string): string {
@@ -72,12 +109,119 @@ export function EnTeteSite({
   const classesSticky = a.sticky ? "sticky top-0" : "";
   const transparentActif = a.transparent && !scrolle;
   const fondClasse = transparentActif
-    ? "bg-transparent border-transparent"
+    ? "bg-transparent"
     : a.couleurFond
       ? ""
-      : "bg-background border-border";
+      : "bg-background";
+
+  /* Bordure inférieure */
+  const bordureClasse = (() => {
+    if (transparentActif) return "border-transparent";
+    const ep = a.bordureBas ?? "fine";
+    if (ep === "aucune") return "border-b-0";
+    if (ep === "epaisse") return "border-b-2";
+    return "border-b";
+  })();
+
+  /* Ombre portée */
+  const ombreClasse = (() => {
+    if (transparentActif) return "";
+    switch (a.ombre ?? "aucune") {
+      case "fine":
+        return "shadow-sm";
+      case "moyenne":
+        return "shadow-md";
+      case "forte":
+        return "shadow-lg";
+      default:
+        return "";
+    }
+  })();
+
+  /* Largeur du conteneur */
+  const largeurClasse = (() => {
+    switch (a.largeurConteneur ?? "normale") {
+      case "etroite":
+        return "max-w-3xl";
+      case "large":
+        return "max-w-7xl";
+      case "pleine":
+        return "max-w-none";
+      default:
+        return "max-w-5xl";
+    }
+  })();
+
+  /* Espacement entre liens */
+  const gapLiensClasse = (() => {
+    switch (a.espacementLiens ?? "normal") {
+      case "compact":
+        return "gap-0.5";
+      case "aere":
+        return "gap-4";
+      default:
+        return "gap-1";
+    }
+  })();
+
+  /* Taille du logo (icône carrée + nom adapté) */
+  const tailleLogoClasse = (() => {
+    switch (a.tailleLogo ?? "M") {
+      case "S":
+        return "h-6 w-6";
+      case "L":
+        return "h-10 w-10";
+      case "XL":
+        return "h-12 w-12";
+      default:
+        return "h-8 w-8";
+    }
+  })();
+  const tailleNomClasse = (() => {
+    switch (a.tailleLogo ?? "M") {
+      case "S":
+        return "text-sm";
+      case "L":
+        return "text-lg";
+      case "XL":
+        return "text-xl";
+      default:
+        return "text-base";
+    }
+  })();
+
+  /* Police du nom du site */
+  const policeNomClasse = (() => {
+    switch (a.policeNomSite ?? "heritee") {
+      case "sans":
+        return "font-sans";
+      case "serif":
+        return "font-serif";
+      case "mono":
+        return "font-mono";
+      default:
+        return "";
+    }
+  })();
+
+  /* Position du logo : utilise CSS order pour réorganiser sans changer le DOM */
+  const styleLogo: React.CSSProperties = {};
+  if (a.couleurTexte) styleLogo.color = a.couleurTexte;
+  const positionLogo = a.positionLogo ?? "gauche";
+  if (positionLogo === "centre") styleLogo.order = 50;
+  else if (positionLogo === "droite") {
+    styleLogo.order = 99;
+    styleLogo.marginLeft = "auto";
+  }
+
+  /* Logo affiché (alternatif si scrollé et URL alt disponible) */
+  const urlLogoEffectif = scrolle && a.urlLogoAlt ? a.urlLogoAlt : urlLogo;
+
   const paddingY =
     a.hauteur === "compact" ? "py-2" : a.hauteur === "grand" ? "py-6" : "py-4";
+  /* En mode «réduit» : on compacte le padding une fois scrollé */
+  const paddingYEffectif =
+    a.sticky && comportement === "reduit" && scrolle ? "py-2" : paddingY;
   const positionClasse =
     a.positionLiens === "gauche"
       ? "justify-start gap-6"
@@ -85,9 +229,22 @@ export function EnTeteSite({
         ? "justify-center gap-6"
         : "justify-end gap-6";
 
+  /* Couleurs effectives (éventuellement remplacées par les versions scrollées) */
+  const fondEffectif =
+    scrolle && a.couleurFondScroll ? a.couleurFondScroll : a.couleurFond;
+  const texteEffectif =
+    scrolle && a.couleurTexteScroll ? a.couleurTexteScroll : a.couleurTexte;
+
   const styleHeader: React.CSSProperties = {};
-  if (!transparentActif && a.couleurFond) styleHeader.background = a.couleurFond;
-  if (a.couleurTexte) styleHeader.color = a.couleurTexte;
+  if (!transparentActif && fondEffectif) styleHeader.background = fondEffectif;
+  if (texteEffectif) styleHeader.color = texteEffectif;
+  if (a.bordureBas && a.bordureBas !== "aucune" && a.couleurBordureBas && !transparentActif) {
+    styleHeader.borderBottomColor = a.couleurBordureBas;
+  }
+  /* Auto-cache : translateY vers le haut */
+  if (a.sticky && comportement === "auto-cache" && cache && !drawerOuvert) {
+    styleHeader.transform = "translateY(-100%)";
+  }
 
   function gererRecherche(e: React.FormEvent) {
     e.preventDefault();
@@ -96,38 +253,98 @@ export function EnTeteSite({
   }
 
   return (
-    <header
-      style={styleHeader}
-      className={`z-30 border-b transition-colors ${classesSticky} ${fondClasse}`}
-    >
-      <div className={`mx-auto flex max-w-5xl items-center gap-6 px-6 ${paddingY} ${positionClasse}`}>
+    <>
+      {/* Bandeau d'annonce */}
+      {bandeau?.active && bandeau.texte && !bandeauFerme && (
+        <div
+          className="relative w-full"
+          style={{
+            background: bandeau.couleurFond ?? "var(--site-couleur-principale)",
+            color: bandeau.couleurTexte ?? "#ffffff",
+          }}
+        >
+          <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-6 py-2 text-center text-xs sm:text-sm font-medium">
+            {bandeau.lien ? (
+              <Link
+                href={bandeau.lien}
+                className="hover:underline"
+                target={/^https?:\/\//.test(bandeau.lien) ? "_blank" : undefined}
+                rel={/^https?:\/\//.test(bandeau.lien) ? "noopener noreferrer" : undefined}
+              >
+                {bandeau.texte}
+              </Link>
+            ) : (
+              <span>{bandeau.texte}</span>
+            )}
+          </div>
+          {bandeau.fermable !== false && (
+            <button
+              type="button"
+              onClick={() => {
+                setBandeauFerme(true);
+                if (cleBandeau) {
+                  try {
+                    window.localStorage.setItem(cleBandeau, "ferme");
+                  } catch {
+                    /* ignore */
+                  }
+                }
+              }}
+              aria-label="Fermer le bandeau"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 opacity-70 hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      <header
+        style={styleHeader}
+        className={`z-30 border-border transition-all duration-200 ${classesSticky} ${fondClasse} ${bordureClasse} ${ombreClasse}`}
+      >
+        <div className={`mx-auto flex ${largeurClasse} items-center gap-6 px-6 ${paddingYEffectif} ${positionClasse}`}>
         {/* Logo */}
         {a.afficherLogo && (
           <Link
             href={`/s/${slugSite}`}
             className="flex shrink-0 items-center gap-2"
-            style={a.couleurTexte ? { color: a.couleurTexte } : undefined}
+            style={styleLogo}
           >
-            {urlLogo ? (
+            {urlLogoEffectif ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={urlLogo} alt="" className="h-8 w-8 rounded" />
+              <img src={urlLogoEffectif} alt="" className={`${tailleLogoClasse} rounded`} />
             ) : (
               <span
-                className="grid h-8 w-8 place-items-center rounded text-xs font-bold text-white"
+                className={`grid ${tailleLogoClasse} place-items-center rounded text-xs font-bold text-white`}
                 style={{ background: "var(--site-couleur-principale)" }}
               >
                 {nomSite.charAt(0).toUpperCase()}
               </span>
             )}
-            <span className="font-semibold">{nomSite}</span>
+            {(a.afficherNomSite ?? true) && (
+              <span className={`font-semibold ${tailleNomClasse} ${policeNomClasse}`}>{nomSite}</span>
+            )}
           </Link>
         )}
 
         {/* Menu desktop */}
         {elements.length > 0 && (
-          <nav className={`hidden items-center gap-1 md:flex ${a.positionLiens === "centre" ? "mx-auto" : a.positionLiens === "droite" ? "ml-auto" : ""}`}>
+          <nav className={`hidden items-center md:flex ${gapLiensClasse} ${a.positionLiens === "centre" ? "mx-auto" : a.positionLiens === "droite" ? "ml-auto" : ""}`}>
             {elements.map((item) => (
-              <LienMenu key={item.id} element={item} />
+              <LienMenu
+                key={item.id}
+                element={item}
+                slugSite={slugSite}
+                cheminCourant={cheminCourant}
+                style={a.styleLiens ?? "minimal"}
+                indicateur={a.indicateurActif ?? "souligne"}
+                couleurHover={a.couleurLienHover}
+                couleurActif={a.couleurLienActif}
+                police={a.policeLiens}
+                graisse={a.graisseLiens}
+                majuscules={a.liensMajuscules}
+              />
             ))}
           </nav>
         )}
@@ -294,12 +511,116 @@ export function EnTeteSite({
         </div>
       )}
     </header>
+    </>
   );
 }
 
 /* Lien desktop avec sous-menu déroulant au survol */
-function LienMenu({ element }: { element: ElementMenu }) {
+function LienMenu({
+  element,
+  slugSite,
+  cheminCourant,
+  style,
+  indicateur,
+  couleurHover,
+  couleurActif,
+  police,
+  graisse,
+  majuscules,
+}: {
+  element: ElementMenu;
+  slugSite: string;
+  cheminCourant: string;
+  style: NonNullable<ApparenceEntete["styleLiens"]>;
+  indicateur: NonNullable<ApparenceEntete["indicateurActif"]>;
+  couleurHover?: string;
+  couleurActif?: string;
+  police?: ApparenceEntete["policeLiens"];
+  graisse?: ApparenceEntete["graisseLiens"];
+  majuscules?: boolean;
+}) {
   const aEnfants = element.enfants.length > 0;
+
+  /* Calcule si ce lien correspond à la page courante */
+  const cheminDepuisHref = (() => {
+    const prefixe = `/s/${slugSite}`;
+    if (!element.href.startsWith(prefixe)) return null;
+    const reste = element.href.slice(prefixe.length) || "/";
+    return reste;
+  })();
+  const actif =
+    cheminDepuisHref !== null &&
+    (cheminDepuisHref === cheminCourant ||
+      (cheminDepuisHref !== "/" && cheminCourant.startsWith(cheminDepuisHref)));
+
+  /* Classes typographiques additionnelles (police / graisse / casse) */
+  const policeClasse = (() => {
+    switch (police ?? "heritee") {
+      case "sans":
+        return "font-sans";
+      case "serif":
+        return "font-serif";
+      case "mono":
+        return "font-mono";
+      default:
+        return "";
+    }
+  })();
+  const graisseClasse = (() => {
+    switch (graisse ?? "medium") {
+      case "normale":
+        return "font-normal";
+      case "semi":
+        return "font-semibold";
+      case "bold":
+        return "font-bold";
+      default:
+        return "font-medium";
+    }
+  })();
+  const majClasse = majuscules ? "uppercase tracking-wider" : "";
+  const classesTypo = `${policeClasse} ${graisseClasse} ${majClasse}`;
+
+  /* Classes de base selon le style (sans graisse — gérée par graisseClasse) */
+  const baseClasses = (() => {
+    switch (style) {
+      case "souligne":
+        return "relative px-1 py-2 text-sm text-foreground/80 transition-colors hover:text-foreground after:pointer-events-none after:absolute after:left-0 after:right-0 after:-bottom-0.5 after:h-px after:bg-current after:scale-x-0 after:transition-transform hover:after:scale-x-100";
+      case "pilule":
+        return "rounded-full border border-transparent px-3.5 py-1.5 text-sm text-foreground/80 transition-colors hover:border-border hover:bg-muted hover:text-foreground";
+      case "fantome":
+        return "rounded-md border border-border/60 px-3 py-1.5 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground";
+      default:
+        return "rounded-md px-3 py-2 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground";
+    }
+  })();
+
+  /* Classes additionnelles si lien actif (selon le mode d'indicateur) */
+  const actifClasses = (() => {
+    if (!actif) return "";
+    switch (indicateur) {
+      case "souligne":
+        return "after:!scale-x-100 after:!bg-current text-foreground font-semibold";
+      case "point":
+        return "relative text-foreground font-semibold before:absolute before:left-1/2 before:-translate-x-1/2 before:-bottom-1 before:h-1 before:w-1 before:rounded-full before:bg-current";
+      case "barre-haut":
+        return "relative text-foreground font-semibold before:absolute before:left-0 before:right-0 before:-top-px before:h-0.5 before:bg-current";
+      case "fond":
+        return "bg-muted text-foreground font-semibold";
+      case "aucun":
+        return "";
+      default:
+        return "text-foreground font-semibold";
+    }
+  })();
+
+  const styleLien: React.CSSProperties = {};
+  if (actif && couleurActif) styleLien.color = couleurActif;
+  /* Couleur de hover via variable CSS custom (consommée par hover:text-[var(--lh)] */
+  const styleHover = couleurHover
+    ? ({ ["--lh" as string]: couleurHover } as React.CSSProperties)
+    : undefined;
+  const hoverClasse = couleurHover ? "hover:!text-[var(--lh)]" : "";
 
   if (!aEnfants) {
     return (
@@ -307,7 +628,9 @@ function LienMenu({ element }: { element: ElementMenu }) {
         href={element.href}
         target={element.externe ? "_blank" : undefined}
         rel={element.externe ? "noopener noreferrer" : undefined}
-        className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
+        style={{ ...styleHover, ...styleLien }}
+        className={`${baseClasses} ${classesTypo} ${actifClasses} ${hoverClasse}`}
+        aria-current={actif ? "page" : undefined}
       >
         {element.libelle}
         {element.externe && (
@@ -321,7 +644,8 @@ function LienMenu({ element }: { element: ElementMenu }) {
     <div className="group relative">
       <button
         type="button"
-        className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
+        style={{ ...styleHover, ...styleLien }}
+        className={`${baseClasses} ${classesTypo} ${actifClasses} ${hoverClasse}`}
       >
         {element.libelle}
       </button>
