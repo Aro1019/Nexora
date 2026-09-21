@@ -22,10 +22,6 @@ function lireNombre(p: Record<string, unknown>, cle: string, defaut = 0): number
   const v = p[cle];
   return typeof v === "number" ? v : defaut;
 }
-function lire<T>(p: Record<string, unknown>, cle: string, defaut: T): T {
-  return p[cle] !== undefined ? (p[cle] as T) : defaut;
-}
-
 function RenduTitre({ p }: { p: Record<string, unknown> }) {
   const niveau = lireChaine(p, "niveau", "h2");
   const texte = lireChaine(p, "texte", "Titre");
@@ -158,9 +154,22 @@ function RenduHero({ p }: { p: Record<string, unknown> }) {
   );
 }
 
+/**
+ * Normalise les contenus des colonnes.
+ * L'éditeur enregistre `colonneGauche` / `colonneDroite` ; on accepte aussi
+ * l'ancien format tableau `colonnes` pour les pages déjà publiées.
+ */
+function lireColonnes(p: Record<string, unknown>): string[] {
+  const tableau = p["colonnes"];
+  if (Array.isArray(tableau)) {
+    return tableau.map((v) => (typeof v === "string" ? v : ""));
+  }
+  return [lireChaine(p, "colonneGauche"), lireChaine(p, "colonneDroite")];
+}
+
 function RenduColonnes({ p }: { p: Record<string, unknown> }) {
-  const nombre = lireNombre(p, "nombre", 2);
-  const colonnes = lire<string[]>(p, "colonnes", ["", ""]);
+  const colonnes = lireColonnes(p);
+  const nombre = lireNombre(p, "nombre", colonnes.length);
   const grilles: Record<number, string> = {
     2: "grid-cols-1 md:grid-cols-2",
     3: "grid-cols-1 md:grid-cols-3",

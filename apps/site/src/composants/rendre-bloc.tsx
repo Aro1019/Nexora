@@ -248,13 +248,29 @@ function RenduHero({ proprietes }: { proprietes: Record<string, unknown> }) {
 // ============================================
 // BLOC COLONNES
 // ============================================
+/**
+ * Normalise les contenus des colonnes.
+ * L'éditeur enregistre `colonneGauche` / `colonneDroite` ; on accepte aussi
+ * l'ancien format tableau `colonnes` pour les pages déjà publiées.
+ */
+function lireColonnes(proprietes: Record<string, unknown>): string[] {
+  const tableau = proprietes["colonnes"];
+  if (Array.isArray(tableau)) {
+    return tableau.map((v) => (typeof v === "string" ? v : ""));
+  }
+  return [
+    lireChaine(proprietes, "colonneGauche"),
+    lireChaine(proprietes, "colonneDroite"),
+  ];
+}
+
 function RenduColonnes({
   proprietes,
 }: {
   proprietes: Record<string, unknown>;
 }) {
-  const nombre = lireNombre(proprietes, "nombre", 2);
-  const colonnes = lire<string[]>(proprietes, "colonnes", ["", ""]);
+  const colonnes = lireColonnes(proprietes);
+  const nombre = lireNombre(proprietes, "nombre", colonnes.length);
 
   const grilles: Record<number, string> = {
     2: "grid-cols-1 md:grid-cols-2",
